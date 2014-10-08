@@ -30,7 +30,7 @@ public class CPU
 			e.printStackTrace();
 		}
 		
-		reset = false;
+		reset = true;
 		nmi = false;
 		irq = false;
 		
@@ -40,7 +40,7 @@ public class CPU
 		
 		c = 0x00;
 		z = 0x00;
-		i = 0x00;
+		i = 0x01;
 		d = 0x00;
 		v = 0x00;
 		n = 0x00;
@@ -69,7 +69,22 @@ public class CPU
 	public void op()
 	{
 		char opcode = accessMemory(pc);
-		if (irq && i != 1)
+		if (reset)
+		{
+			reset = false;
+			pc = (char) (accessMemory((char) 0xFFFC) | (accessMemory((char) 0xFFFD) << 8));
+			pc--;
+			i = 1;
+			d = (byte) ((int)(Math.random() * 2));
+			memory[0x2000] = 0x00;
+			memory[0x2001] = 0x00;
+			tick(7);
+		}
+		else if (nmi)
+		{
+			NMI();
+		}
+		else if (irq && i != 1)
 		{
 			BRK();
 		}
@@ -1212,6 +1227,18 @@ public class CPU
 		char status = (char) ((n << 7) | (v << 6) | (1 << 5) | (1 << 4) | (d << 3) | (i << 2) | (z << 1) | (c));
 		accessMemory(true, (char) (0x0100 + sp--), status);
 		pc = (char) (accessMemory((char) 0xFFFE) | (accessMemory((char) 0xFFFF) << 8));
+		pc--;
+	}
+	
+	public void NMI()
+	{
+		accessMemory((char) (pc + 1));
+		accessMemory(true, (char) (0x0100 + sp--), (char) (pc >> 4));
+		accessMemory(true, (char) (0x0100 + sp--), (char) (pc & 0xFF));
+		char status = (char) ((n << 7) | (v << 6) | (1 << 5) | (1 << 4) | (d << 3) | (i << 2) | (z << 1) | (c));
+		accessMemory(true, (char) (0x0100 + sp--), status);
+		pc = (char) (accessMemory((char) 0xFFFA) | (accessMemory((char) 0xFFFB) << 8));
+		pc--;
 	}
 	
 	public void BVC(char operand)
