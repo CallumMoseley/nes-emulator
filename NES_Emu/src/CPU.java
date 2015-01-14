@@ -2,6 +2,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
+// TEST CODE: https://code.google.com/p/hmc-6502/source/browse/trunk/emu/testvectors/AllSuiteA.asm
+
 public class CPU
 {
 	public char a, x, y, sp;
@@ -9,65 +11,72 @@ public class CPU
 	public char pc;
 
 	public char[] memory = new char[0x10000];
-	
+
 	public PPU ppu;
 	public APU apu;
-	
+
 	public boolean reset, nmi, irq;
-	
-	public void initialize()
+
+	public CPU()
 	{
+		ppu = new PPU();
+		apu = new APU();
+
 		try
 		{
-			byte[] q = Files.readAllBytes(Paths.get("test"));
+			byte[] q = Files.readAllBytes(Paths.get("AllSuiteA.bin"));
 			for (int i = 0; i < q.length; i++)
 			{
-				memory[i] = (char) (q[i] & 0xFF);
+				memory[i + 0x4000] = (char) (q[i] & 0xFF);
 			}
 		}
 		catch (IOException e)
 		{
 			e.printStackTrace();
 		}
-		
+
 		reset = true;
 		nmi = false;
 		irq = false;
-		
+
 		a = 0x00;
 		x = 0x00;
 		y = 0x00;
-		
+
 		c = 0x00;
 		z = 0x00;
 		i = 0x01;
 		d = 0x00;
 		v = 0x00;
 		n = 0x00;
-		
+
 		sp = 0xFF;
 		pc = 0x00;
 	}
-	
+
 	public void tick()
 	{
 		tick(1);
 	}
-	
+
 	public void tick(int n)
 	{
-//		for (int i = 0; i < n; i++)
-//		{
-//			for (int j = 0; j < 3; j++)
-//			{
-//				ppu.tick();
-//			}
-//			apu.tick();
-//		}
+		for (int i = 0; i < n; i++)
+		{
+			for (int j = 0; j < 3; j++)
+			{
+				ppu.tick();
+			}
+			apu.tick();
+		}
 	}
 
 	public void op()
 	{
+		if (pc == 0x45C0)
+		{
+			return;
+		}
 		char opcode = accessMemory(pc);
 		if (reset)
 		{
@@ -75,10 +84,10 @@ public class CPU
 			pc = (char) (accessMemory((char) 0xFFFC) | (accessMemory((char) 0xFFFD) << 8));
 			pc--;
 			i = 1;
-			d = (byte) ((int)(Math.random() * 2));
-			memory[0x2000] = 0x00;
-			memory[0x2001] = 0x00;
-			tick(7);
+			d = (byte) ((int) (Math.random() * 2));
+			// memory[0x2000] = 0x00;
+			// memory[0x2001] = 0x00;
+			tick(5);
 		}
 		else if (nmi)
 		{
@@ -88,7 +97,9 @@ public class CPU
 		{
 			BRK();
 		}
-		else if (opcode == 0x69 || opcode == 0x65 || opcode == 0x75 || opcode == 0x6D || opcode == 0x7D || opcode == 0x79 || opcode == 0x61 || opcode == 0x71)
+		else if (opcode == 0x69 || opcode == 0x65 || opcode == 0x75
+				|| opcode == 0x6D || opcode == 0x7D || opcode == 0x79
+				|| opcode == 0x61 || opcode == 0x71)
 		{
 			char operand = 0;
 			char zpAddr = 0;
@@ -97,20 +108,20 @@ public class CPU
 			{
 			case 0x69:
 				operand = accessMemory(++pc);
-			break;
+				break;
 			case 0x65:
 				loc = accessMemory(++pc);
 				operand = accessMemory(loc);
-			break;
+				break;
 			case 0x75:
 				loc = (char) ((accessMemory(++pc) + x) & 0xFF);
 				operand = accessMemory(loc);
 				tick();
-			break;
+				break;
 			case 0x6D:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
 				operand = accessMemory(loc);
-			break;
+				break;
 			case 0x7D:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
 				operand = accessMemory((char) (loc + x));
@@ -118,7 +129,7 @@ public class CPU
 				{
 					tick();
 				}
-			break;
+				break;
 			case 0x79:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
 				operand = accessMemory((char) (loc + y));
@@ -126,13 +137,13 @@ public class CPU
 				{
 					tick();
 				}
-			break;
+				break;
 			case 0x61:
 				zpAddr = (char) ((accessMemory(++pc) + x) & 0xFF);
 				loc = (char) (accessMemory(zpAddr) | (accessMemory((char) (zpAddr + 1)) << 8));
 				operand = accessMemory(loc);
 				tick();
-			break;
+				break;
 			case 0x71:
 				zpAddr = (char) (accessMemory(++pc) & 0xFF);
 				loc = (char) (accessMemory(zpAddr) | (accessMemory((char) (zpAddr + 1)) << 8));
@@ -141,11 +152,13 @@ public class CPU
 				{
 					tick();
 				}
-			break;
+				break;
 			}
 			ADC(operand);
 		}
-		else if (opcode == 0x29 || opcode == 0x25 || opcode == 0x35 || opcode == 0x2D || opcode == 0x3D || opcode == 0x39 || opcode == 0x21 || opcode == 0x31)
+		else if (opcode == 0x29 || opcode == 0x25 || opcode == 0x35
+				|| opcode == 0x2D || opcode == 0x3D || opcode == 0x39
+				|| opcode == 0x21 || opcode == 0x31)
 		{
 			char operand = 0;
 			char zpAddr = 0;
@@ -154,20 +167,20 @@ public class CPU
 			{
 			case 0x29:
 				operand = accessMemory(++pc);
-			break;
+				break;
 			case 0x25:
 				loc = accessMemory(++pc);
 				operand = accessMemory(loc);
-			break;
+				break;
 			case 0x35:
 				loc = (char) ((accessMemory(++pc) + x) % 256);
 				operand = accessMemory(loc);
 				tick();
-			break;
+				break;
 			case 0x2D:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
 				operand = accessMemory(loc);
-			break;
+				break;
 			case 0x3D:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
 				operand = accessMemory((char) (loc + x));
@@ -175,7 +188,7 @@ public class CPU
 				{
 					tick();
 				}
-			break;
+				break;
 			case 0x39:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
 				operand = accessMemory((char) (loc + y));
@@ -183,13 +196,13 @@ public class CPU
 				{
 					tick();
 				}
-			break;
+				break;
 			case 0x21:
 				zpAddr = (char) ((accessMemory(++pc) + x) % 256);
 				loc = (char) (accessMemory(zpAddr) | (accessMemory((char) (zpAddr + 1)) << 8));
 				operand = accessMemory(loc);
 				tick();
-			break;
+				break;
 			case 0x31:
 				zpAddr = (char) (accessMemory(++pc) % 256);
 				loc = (char) (accessMemory(zpAddr) | (accessMemory((char) (zpAddr + 1)) << 8));
@@ -198,11 +211,12 @@ public class CPU
 				{
 					tick();
 				}
-			break;
+				break;
 			}
 			AND(operand);
 		}
-		else if (opcode == 0x0A || opcode == 0x06 || opcode == 0x16 || opcode == 0x0E || opcode == 0x1E)
+		else if (opcode == 0x0A || opcode == 0x06 || opcode == 0x16
+				|| opcode == 0x0E || opcode == 0x1E)
 		{
 			char operand = 0;
 			char loc = 0;
@@ -213,28 +227,30 @@ public class CPU
 				tick();
 				ASL();
 				go = false;
+				break;
 			case 0x06:
 				loc = accessMemory(++pc);
 				operand = accessMemory(loc);
 				tick();
-			break;
+				break;
 			case 0x16:
 				loc = (char) ((accessMemory(++pc) + x) % 256);
 				operand = accessMemory(loc);
 				tick(2);
-			break;
+				break;
 			case 0x0E:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
 				operand = accessMemory(loc);
 				tick();
-			break;
+				break;
 			case 0x1E:
 				loc = (char) ((accessMemory(++pc) | (accessMemory(++pc) << 8)) + x);
 				operand = accessMemory(loc);
 				tick(2);
-			break;
+				break;
 			}
-			if (go) ASL(operand, loc);
+			if (go)
+				ASL(operand, loc);
 		}
 		else if (opcode == 0x90)
 		{
@@ -255,11 +271,11 @@ public class CPU
 			{
 			case 0x24:
 				operand = accessMemory(accessMemory(++pc));
-			break;
+				break;
 			case 0x2C:
-				operand = (char)(accessMemory(++pc) | (accessMemory(++pc) << 8));
+				operand = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
 				tick();
-			break;
+				break;
 			}
 			BIT(operand);
 		}
@@ -307,7 +323,9 @@ public class CPU
 			tick(2);
 			CLV();
 		}
-		else if (opcode == 0xC9 || opcode == 0xC5 || opcode == 0xD5 || opcode == 0xCD || opcode == 0xDD || opcode == 0xD9 || opcode == 0xC1 || opcode == 0xD1)
+		else if (opcode == 0xC9 || opcode == 0xC5 || opcode == 0xD5
+				|| opcode == 0xCD || opcode == 0xDD || opcode == 0xD9
+				|| opcode == 0xC1 || opcode == 0xD1)
 		{
 			char operand = 0;
 			char zpAddr = 0;
@@ -316,20 +334,20 @@ public class CPU
 			{
 			case 0xC9:
 				operand = accessMemory(++pc);
-			break;
+				break;
 			case 0xC5:
 				loc = accessMemory(++pc);
 				operand = accessMemory(loc);
-			break;
+				break;
 			case 0xD5:
 				loc = (char) ((accessMemory(++pc) + x) & 0xFF);
 				operand = accessMemory(loc);
 				tick();
-			break;
+				break;
 			case 0xCD:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
 				operand = accessMemory(loc);
-			break;
+				break;
 			case 0xDD:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
 				operand = accessMemory((char) (loc + x));
@@ -337,7 +355,7 @@ public class CPU
 				{
 					tick();
 				}
-			break;
+				break;
 			case 0xD9:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
 				operand = accessMemory((char) (loc + y));
@@ -345,13 +363,13 @@ public class CPU
 				{
 					tick();
 				}
-			break;
+				break;
 			case 0xC1:
 				zpAddr = (char) ((accessMemory(++pc) + x) & 0xFF);
 				loc = (char) (accessMemory(zpAddr) | (accessMemory((char) (zpAddr + 1)) << 8));
 				operand = accessMemory(loc);
 				tick();
-			break;
+				break;
 			case 0xD1:
 				zpAddr = (char) (accessMemory(++pc) & 0xFF);
 				loc = (char) (accessMemory(zpAddr) | (accessMemory((char) (zpAddr + 1)) << 8));
@@ -360,7 +378,7 @@ public class CPU
 				{
 					tick();
 				}
-			break;
+				break;
 			}
 			CMP(operand);
 		}
@@ -372,15 +390,15 @@ public class CPU
 			{
 			case 0xE0:
 				operand = accessMemory(++pc);
-			break;
+				break;
 			case 0xE4:
 				loc = accessMemory(++pc);
 				operand = accessMemory(loc);
-			break;
+				break;
 			case 0xEC:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
 				operand = accessMemory(loc);
-			break;
+				break;
 			}
 			CPX(operand);
 		}
@@ -392,19 +410,20 @@ public class CPU
 			{
 			case 0xC0:
 				operand = accessMemory(++pc);
-			break;
+				break;
 			case 0xC4:
 				loc = accessMemory(++pc);
 				operand = accessMemory(loc);
-			break;
+				break;
 			case 0xCC:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
 				operand = accessMemory(loc);
-			break;
+				break;
 			}
 			CPY(operand);
 		}
-		else if (opcode == 0xC6 || opcode == 0xD6 || opcode == 0xCE || opcode == 0xDE)
+		else if (opcode == 0xC6 || opcode == 0xD6 || opcode == 0xCE
+				|| opcode == 0xDE)
 		{
 			char loc = 0;
 			switch (opcode)
@@ -412,19 +431,19 @@ public class CPU
 			case 0xC6:
 				loc = accessMemory(++pc);
 				tick();
-			break;
+				break;
 			case 0xD6:
 				loc = (char) ((accessMemory(++pc) + x) & 0xFF);
 				tick(2);
-			break;
+				break;
 			case 0xCE:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
 				tick();
-			break;
+				break;
 			case 0xDE:
 				loc = (char) ((accessMemory(++pc) | (accessMemory(++pc) << 8)) + x);
 				tick(2);
-			break;
+				break;
 			}
 			DEC(loc);
 		}
@@ -438,7 +457,9 @@ public class CPU
 			DEY();
 			tick(2);
 		}
-		else if (opcode == 0x49 || opcode == 0x45 || opcode == 0x55 || opcode == 0x4D || opcode == 0x5D || opcode == 0x59 || opcode == 0x41 || opcode == 0x51)
+		else if (opcode == 0x49 || opcode == 0x45 || opcode == 0x55
+				|| opcode == 0x4D || opcode == 0x5D || opcode == 0x59
+				|| opcode == 0x41 || opcode == 0x51)
 		{
 			char operand = 0;
 			char zpAddr = 0;
@@ -447,20 +468,20 @@ public class CPU
 			{
 			case 0x49:
 				operand = accessMemory(++pc);
-			break;
+				break;
 			case 0x45:
 				loc = accessMemory(++pc);
 				operand = accessMemory(loc);
-			break;
+				break;
 			case 0x55:
 				loc = (char) ((accessMemory(++pc) + x) & 0xFF);
 				operand = accessMemory(loc);
 				tick();
-			break;
+				break;
 			case 0x4D:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
 				operand = accessMemory(loc);
-			break;
+				break;
 			case 0x5D:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
 				operand = accessMemory((char) (loc + x));
@@ -468,7 +489,7 @@ public class CPU
 				{
 					tick();
 				}
-			break;
+				break;
 			case 0x59:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
 				operand = accessMemory((char) (loc + y));
@@ -476,13 +497,13 @@ public class CPU
 				{
 					tick();
 				}
-			break;
+				break;
 			case 0x41:
 				zpAddr = (char) ((accessMemory(++pc) + x) & 0xFF);
 				loc = (char) (accessMemory(zpAddr) | (accessMemory((char) (zpAddr + 1)) << 8));
 				operand = accessMemory(loc);
 				tick();
-			break;
+				break;
 			case 0x51:
 				zpAddr = (char) (accessMemory(++pc) & 0xFF);
 				loc = (char) (accessMemory(zpAddr) | (accessMemory((char) (zpAddr + 1)) << 8));
@@ -491,11 +512,12 @@ public class CPU
 				{
 					tick();
 				}
-			break;
+				break;
 			}
 			EOR(operand);
 		}
-		else if (opcode == 0xE6 || opcode == 0xF6 || opcode == 0xEE || opcode == 0xFE)
+		else if (opcode == 0xE6 || opcode == 0xF6 || opcode == 0xEE
+				|| opcode == 0xFE)
 		{
 			char loc = 0;
 			switch (opcode)
@@ -503,19 +525,19 @@ public class CPU
 			case 0xE6:
 				loc = accessMemory(++pc);
 				tick();
-			break;
+				break;
 			case 0xF6:
 				loc = (char) ((accessMemory(++pc) + x) & 0xFF);
 				tick(2);
-			break;
+				break;
 			case 0xEE:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
 				tick();
-			break;
+				break;
 			case 0xFE:
 				loc = (char) ((accessMemory(++pc) | (accessMemory(++pc) << 8)) + x);
 				tick(2);
-			break;
+				break;
 			}
 			INC(loc);
 		}
@@ -536,7 +558,7 @@ public class CPU
 			{
 			case 0x4C:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
-			break;
+				break;
 			case 0x6C:
 				char addr = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
 				if ((addr & 0xFF) == 0xFF)
@@ -547,7 +569,7 @@ public class CPU
 				{
 					loc = (char) (accessMemory(addr) | (accessMemory((char) (addr + 1)) << 8));
 				}
-			break;
+				break;
 			}
 			JMP(loc);
 		}
@@ -557,7 +579,9 @@ public class CPU
 			tick();
 			JSR(loc);
 		}
-		else if (opcode == 0xA9 || opcode == 0xA5 || opcode == 0xB5 || opcode == 0xAD || opcode == 0xBD || opcode == 0xB9 || opcode == 0xA1 || opcode == 0xB1)
+		else if (opcode == 0xA9 || opcode == 0xA5 || opcode == 0xB5
+				|| opcode == 0xAD || opcode == 0xBD || opcode == 0xB9
+				|| opcode == 0xA1 || opcode == 0xB1)
 		{
 			char operand = 0;
 			char zpAddr = 0;
@@ -566,20 +590,20 @@ public class CPU
 			{
 			case 0xA9:
 				operand = accessMemory(++pc);
-			break;
+				break;
 			case 0xA5:
 				loc = accessMemory(++pc);
 				operand = accessMemory(loc);
-			break;
+				break;
 			case 0xB5:
 				loc = (char) ((accessMemory(++pc) + x) & 0xFF);
 				operand = accessMemory(loc);
 				tick();
-			break;
+				break;
 			case 0xAD:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
 				operand = accessMemory(loc);
-			break;
+				break;
 			case 0xBD:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
 				operand = accessMemory((char) (loc + x));
@@ -587,7 +611,7 @@ public class CPU
 				{
 					tick();
 				}
-			break;
+				break;
 			case 0xB9:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
 				operand = accessMemory((char) (loc + y));
@@ -595,13 +619,13 @@ public class CPU
 				{
 					tick();
 				}
-			break;
+				break;
 			case 0xA1:
 				zpAddr = (char) ((accessMemory(++pc) + x) & 0xFF);
 				loc = (char) (accessMemory(zpAddr) | (accessMemory((char) (zpAddr + 1)) << 8));
 				operand = accessMemory(loc);
 				tick();
-			break;
+				break;
 			case 0xB1:
 				zpAddr = (char) (accessMemory(++pc) & 0xFF);
 				loc = (char) (accessMemory(zpAddr) | (accessMemory((char) (zpAddr + 1)) << 8));
@@ -610,11 +634,12 @@ public class CPU
 				{
 					tick();
 				}
-			break;
+				break;
 			}
 			LDA(operand);
 		}
-		else if (opcode == 0xA2 || opcode == 0xA6 || opcode == 0xB6 || opcode == 0xAE || opcode == 0xBE)
+		else if (opcode == 0xA2 || opcode == 0xA6 || opcode == 0xB6
+				|| opcode == 0xAE || opcode == 0xBE)
 		{
 			char operand = 0;
 			char loc = 0;
@@ -622,20 +647,20 @@ public class CPU
 			{
 			case 0xA2:
 				operand = accessMemory(++pc);
-			break;
+				break;
 			case 0xA6:
 				loc = accessMemory(++pc);
 				operand = accessMemory(loc);
-			break;
+				break;
 			case 0xB6:
 				loc = (char) ((accessMemory(++pc) + y) & 0xFF);
 				operand = accessMemory(loc);
 				tick();
-			break;
+				break;
 			case 0xAE:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
 				operand = accessMemory(loc);
-			break;
+				break;
 			case 0xBE:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
 				operand = accessMemory((char) (loc + y));
@@ -643,11 +668,12 @@ public class CPU
 				{
 					tick();
 				}
-			break;
+				break;
 			}
 			LDX(operand);
 		}
-		else if (opcode == 0xA0 || opcode == 0xA4 || opcode == 0xB4 || opcode == 0xAC || opcode == 0xBC)
+		else if (opcode == 0xA0 || opcode == 0xA4 || opcode == 0xB4
+				|| opcode == 0xAC || opcode == 0xBC)
 		{
 			char operand = 0;
 			char loc = 0;
@@ -655,20 +681,20 @@ public class CPU
 			{
 			case 0xA0:
 				operand = accessMemory(++pc);
-			break;
+				break;
 			case 0xA4:
 				loc = accessMemory(++pc);
 				operand = accessMemory(loc);
-			break;
+				break;
 			case 0xB4:
 				loc = (char) ((accessMemory(++pc) + x) & 0xFF);
 				operand = accessMemory(loc);
 				tick();
-			break;
+				break;
 			case 0xAC:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
 				operand = accessMemory(loc);
-			break;
+				break;
 			case 0xBC:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
 				operand = accessMemory((char) (loc + x));
@@ -676,11 +702,12 @@ public class CPU
 				{
 					tick();
 				}
-			break;
+				break;
 			}
 			LDY(operand);
 		}
-		else if (opcode == 0x4A || opcode == 0x46 || opcode == 0x56 || opcode == 0x4E || opcode == 0x5E)
+		else if (opcode == 0x4A || opcode == 0x46 || opcode == 0x56
+				|| opcode == 0x4E || opcode == 0x5E)
 		{
 			char operand = 0;
 			char loc = 0;
@@ -691,39 +718,40 @@ public class CPU
 				LSR();
 				tick();
 				go = false;
-			break;
+				break;
 			case 0x46:
 				loc = accessMemory(++pc);
 				operand = accessMemory(loc);
 				tick();
-			break;
+				break;
 			case 0x56:
 				loc = (char) ((accessMemory(++pc) + x) & 0xFF);
 				operand = accessMemory(loc);
 				tick(2);
-			break;
+				break;
 			case 0x4E:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
 				operand = accessMemory(loc);
 				tick();
-			break;
+				break;
 			case 0x5E:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
-				operand = accessMemory((char) (loc + x));
-				if ((loc & 0x0F00) != ((loc + x) & 0x0F00))
-				{
-					tick();
-				}
-			break;
+				loc = (char) (loc + x);
+				operand = accessMemory((char) (loc));
+				tick(3);
+				break;
 			}
-			if (go) LSR(operand, loc);
+			if (go)
+				LSR(operand, loc);
 		}
 		else if (opcode == 0xEA)
 		{
 			tick();
 			NOP();
 		}
-		else if (opcode == 0x09 || opcode == 0x05 || opcode == 0x15 || opcode == 0x0D || opcode == 0x1D || opcode == 0x19 || opcode == 0x01 || opcode == 0x11)
+		else if (opcode == 0x09 || opcode == 0x05 || opcode == 0x15
+				|| opcode == 0x0D || opcode == 0x1D || opcode == 0x19
+				|| opcode == 0x01 || opcode == 0x11)
 		{
 			char operand = 0;
 			char zpAddr = 0;
@@ -732,20 +760,20 @@ public class CPU
 			{
 			case 0x09:
 				operand = accessMemory(++pc);
-			break;
+				break;
 			case 0x05:
 				loc = accessMemory(++pc);
 				operand = accessMemory(loc);
-			break;
+				break;
 			case 0x15:
 				loc = (char) ((accessMemory(++pc) + x) & 0xFF);
 				operand = accessMemory(loc);
 				tick();
-			break;
+				break;
 			case 0x0D:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
 				operand = accessMemory(loc);
-			break;
+				break;
 			case 0x1D:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
 				operand = accessMemory((char) (loc + x));
@@ -753,7 +781,7 @@ public class CPU
 				{
 					tick();
 				}
-			break;
+				break;
 			case 0x19:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
 				operand = accessMemory((char) (loc + y));
@@ -761,13 +789,13 @@ public class CPU
 				{
 					tick();
 				}
-			break;
+				break;
 			case 0x01:
 				zpAddr = (char) ((accessMemory(++pc) + x) & 0xFF);
 				loc = (char) (accessMemory(zpAddr) | (accessMemory((char) (zpAddr + 1)) << 8));
 				operand = accessMemory(loc);
 				tick();
-			break;
+				break;
 			case 0x11:
 				zpAddr = (char) (accessMemory(++pc) & 0xFF);
 				loc = (char) (accessMemory(zpAddr) | (accessMemory((char) (zpAddr + 1)) << 8));
@@ -776,7 +804,7 @@ public class CPU
 				{
 					tick();
 				}
-			break;
+				break;
 			}
 			ORA(operand);
 		}
@@ -800,7 +828,8 @@ public class CPU
 			PLP();
 			tick(2);
 		}
-		else if (opcode == 0x2A || opcode == 0x26 || opcode == 0x36 || opcode == 0x2E|| opcode == 0x3E)
+		else if (opcode == 0x2A || opcode == 0x26 || opcode == 0x36
+				|| opcode == 0x2E || opcode == 0x3E)
 		{
 			char operand = 0;
 			char loc = 0;
@@ -811,34 +840,34 @@ public class CPU
 				ROL();
 				tick();
 				go = false;
-			break;
+				break;
 			case 0x26:
 				loc = accessMemory(++pc);
 				operand = accessMemory(loc);
 				tick();
-			break;
+				break;
 			case 0x36:
 				loc = (char) ((accessMemory(++pc) + x) & 0xFF);
 				operand = accessMemory(loc);
 				tick(2);
-			break;
+				break;
 			case 0x2E:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
 				operand = accessMemory(loc);
 				tick();
-			break;
+				break;
 			case 0x3E:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
-				operand = accessMemory((char) (loc + x));
-				if ((loc & 0x0F00) != ((loc + x) & 0x0F00))
-				{
-					tick();
-				}
-			break;
+				loc = (char) (loc + x);
+				operand = accessMemory(loc);
+				tick(3);
+				break;
 			}
-			if (go) ROL(operand, loc);
+			if (go)
+				ROL(operand, loc);
 		}
-		else if (opcode == 0x6A || opcode == 0x66 || opcode == 0x76 || opcode == 0x6E|| opcode == 0x7E)
+		else if (opcode == 0x6A || opcode == 0x66 || opcode == 0x76
+				|| opcode == 0x6E || opcode == 0x7E)
 		{
 			char operand = 0;
 			char loc = 0;
@@ -849,32 +878,31 @@ public class CPU
 				ROR();
 				tick();
 				go = false;
-			break;
+				break;
 			case 0x66:
 				loc = accessMemory(++pc);
 				operand = accessMemory(loc);
 				tick();
-			break;
+				break;
 			case 0x76:
 				loc = (char) ((accessMemory(++pc) + x) & 0xFF);
 				operand = accessMemory(loc);
 				tick(2);
-			break;
+				break;
 			case 0x6E:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
 				operand = accessMemory(loc);
 				tick();
-			break;
+				break;
 			case 0x7E:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
-				operand = accessMemory((char) (loc + x));
-				if ((loc & 0x0F00) != ((loc + x) & 0x0F00))
-				{
-					tick();
-				}
-			break;
+				loc = (char) (loc + x);
+				operand = accessMemory(loc);
+				tick(3);
+				break;
 			}
-			if (go) ROR(operand, loc);
+			if (go)
+				ROR(operand, loc);
 		}
 		else if (opcode == 0x40)
 		{
@@ -886,7 +914,9 @@ public class CPU
 			RTS();
 			tick(3);
 		}
-		else if (opcode == 0xE9 || opcode == 0xE5 || opcode == 0xF5 || opcode == 0xED || opcode == 0xFD || opcode == 0xF9 || opcode == 0xE1 || opcode == 0xF1)
+		else if (opcode == 0xE9 || opcode == 0xE5 || opcode == 0xF5
+				|| opcode == 0xED || opcode == 0xFD || opcode == 0xF9
+				|| opcode == 0xE1 || opcode == 0xF1)
 		{
 			char operand = 0;
 			char zpAddr = 0;
@@ -895,20 +925,20 @@ public class CPU
 			{
 			case 0xE9:
 				operand = accessMemory(++pc);
-			break;
+				break;
 			case 0xE5:
 				loc = accessMemory(++pc);
 				operand = accessMemory(loc);
-			break;
+				break;
 			case 0xF5:
 				loc = (char) ((accessMemory(++pc) + x) & 0xFF);
 				operand = accessMemory(loc);
 				tick();
-			break;
+				break;
 			case 0xED:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
 				operand = accessMemory(loc);
-			break;
+				break;
 			case 0xFD:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
 				operand = accessMemory((char) (loc + x));
@@ -916,7 +946,7 @@ public class CPU
 				{
 					tick();
 				}
-			break;
+				break;
 			case 0xF9:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
 				operand = accessMemory((char) (loc + y));
@@ -924,13 +954,13 @@ public class CPU
 				{
 					tick();
 				}
-			break;
+				break;
 			case 0xE1:
 				zpAddr = (char) ((accessMemory(++pc) + x) & 0xFF);
 				loc = (char) (accessMemory(zpAddr) | (accessMemory((char) (zpAddr + 1)) << 8));
 				operand = accessMemory(loc);
 				tick();
-			break;
+				break;
 			case 0xF1:
 				zpAddr = (char) (accessMemory(++pc) & 0xFF);
 				loc = (char) (accessMemory(zpAddr) | (accessMemory((char) (zpAddr + 1)) << 8));
@@ -939,7 +969,7 @@ public class CPU
 				{
 					tick();
 				}
-			break;
+				break;
 			}
 			SBC(operand);
 		}
@@ -958,7 +988,9 @@ public class CPU
 			SEI();
 			tick();
 		}
-		else if (opcode == 0x85 || opcode == 0x95 || opcode == 0x8D || opcode == 0x9D || opcode == 0x99 || opcode == 0x81 || opcode == 0x91)
+		else if (opcode == 0x85 || opcode == 0x95 || opcode == 0x8D
+				|| opcode == 0x9D || opcode == 0x99 || opcode == 0x81
+				|| opcode == 0x91)
 		{
 			char zpAddr = 0;
 			char loc = 0;
@@ -966,35 +998,35 @@ public class CPU
 			{
 			case 0x85:
 				loc = accessMemory(++pc);
-			break;
+				break;
 			case 0x95:
 				loc = (char) ((accessMemory(++pc) + x) & 0xFF);
 				tick();
-			break;
+				break;
 			case 0x8D:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
-			break;
+				break;
 			case 0x9D:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
 				loc = (char) (loc + x);
 				tick();
-			break;
+				break;
 			case 0x99:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
 				loc = (char) (loc + y);
 				tick();
-			break;
+				break;
 			case 0x81:
 				zpAddr = (char) ((accessMemory(++pc) + x) & 0xFF);
 				loc = (char) (accessMemory(zpAddr) | (accessMemory((char) (zpAddr + 1)) << 8));
 				tick();
-			break;
+				break;
 			case 0x91:
 				zpAddr = (char) (accessMemory(++pc) & 0xFF);
 				loc = (char) (accessMemory(zpAddr) | (accessMemory((char) (zpAddr + 1)) << 8));
 				loc = (char) (loc + y);
 				tick();
-			break;
+				break;
 			}
 			STA(loc);
 		}
@@ -1005,14 +1037,14 @@ public class CPU
 			{
 			case 0x86:
 				loc = accessMemory(++pc);
-			break;
+				break;
 			case 0x96:
 				loc = (char) ((accessMemory(++pc) + y) & 0xFF);
 				tick();
-			break;
+				break;
 			case 0x8E:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
-			break;
+				break;
 			}
 			STX(loc);
 		}
@@ -1021,16 +1053,16 @@ public class CPU
 			char loc = 0;
 			switch (opcode)
 			{
-			case 0x86:
+			case 0x84:
 				loc = accessMemory(++pc);
-			break;
-			case 0x96:
+				break;
+			case 0x94:
 				loc = (char) ((accessMemory(++pc) + x) & 0xFF);
 				tick();
-			break;
-			case 0x8E:
+				break;
+			case 0x8C:
 				loc = (char) (accessMemory(++pc) | (accessMemory(++pc) << 8));
-			break;
+				break;
 			}
 			STY(loc);
 		}
@@ -1064,13 +1096,14 @@ public class CPU
 			TYA();
 			tick();
 		}
-		
+
 		pc++;
 	}
 
 	public char accessMemory(boolean write, char address, char b)
 	{
-		if (reset && write) write = false;
+		if (reset && write)
+			write = false;
 		tick();
 		if (!write)
 		{
@@ -1079,54 +1112,60 @@ public class CPU
 		memory[address] = b;
 		return 0;
 	}
-	
+
 	public char accessMemory(char address)
 	{
-		return accessMemory(false, address, (char)0);
+		return accessMemory(false, address, (char) 0);
 	}
-	
+
 	// Opcodes, as far as the eye can see!
 	public void ADC(char operand)
 	{
 		char result = (char) (a + operand + c);
 		c = 0;
-		if (result > 0xFF) c = 1;
+		if (result > 0xFF)
+			c = 1;
 		result &= 0xFF;
 		v = 0;
-		if (((a ^ result) & (operand ^ result) & 0x80) != 0) v = 1;
+		if (((a ^ result) & (operand ^ result) & 0x80) != 0)
+			v = 1;
 		a = result;
 		z = 0;
-		if (a == 0) z = 1;
+		if (a == 0)
+			z = 1;
 		n = (byte) (a >> 7);
 	}
-	
+
 	public void AND(char operand)
 	{
 		a &= operand;
 		z = 0;
-		if (a == 0) z = 1;
+		if (a == 0)
+			z = 1;
 		n = (byte) (a >> 7);
 	}
-	
+
 	public void ASL()
 	{
 		c = (byte) (a >> 7);
 		a = (char) ((a << 1) & 0xFF);
 		z = 0;
-		if (a == 0) z = 1;
+		if (a == 0)
+			z = 1;
 		n = (byte) (a >> 7);
 	}
-	
+
 	public void ASL(char operand, char loc)
 	{
 		c = (byte) (operand >> 7);
 		operand = (char) ((operand << 1) & 0xFF);
 		accessMemory(true, loc, operand);
 		z = 0;
-		if (operand == 0) z = 1;
+		if (operand == 0)
+			z = 1;
 		n = (byte) (operand >> 7);
 	}
-	
+
 	public void BCC(char operand)
 	{
 		if (c == 0)
@@ -1140,7 +1179,7 @@ public class CPU
 			pc -= 2;
 		}
 	}
-	
+
 	public void BCS(char operand)
 	{
 		if (c == 1)
@@ -1154,7 +1193,7 @@ public class CPU
 			pc -= 2;
 		}
 	}
-	
+
 	public void BEQ(char operand)
 	{
 		if (z == 1)
@@ -1165,18 +1204,18 @@ public class CPU
 			{
 				tick();
 			}
-			pc -= 2;
 		}
 	}
-	
+
 	public void BIT(char operand)
 	{
 		z = 0;
-		if ((a & operand) == 0) z = 1;
+		if ((a & operand) == 0)
+			z = 1;
 		v = (byte) ((operand & 0x40) >> 6);
 		n = (byte) (operand >> 7);
 	}
-	
+
 	public void BMI(char operand)
 	{
 		if (n == 1)
@@ -1190,7 +1229,7 @@ public class CPU
 			pc -= 2;
 		}
 	}
-	
+
 	public void BNE(char operand)
 	{
 		if (z == 0)
@@ -1201,10 +1240,9 @@ public class CPU
 			{
 				tick();
 			}
-			pc -= 2;
 		}
 	}
-	
+
 	public void BPL(char operand)
 	{
 		if (n == 0)
@@ -1218,29 +1256,31 @@ public class CPU
 			pc -= 2;
 		}
 	}
-	
+
 	public void BRK()
 	{
 		accessMemory((char) (pc + 1));
 		accessMemory(true, (char) (0x0100 + sp--), (char) (pc >> 4));
 		accessMemory(true, (char) (0x0100 + sp--), (char) (pc & 0xFF));
-		char status = (char) ((n << 7) | (v << 6) | (1 << 5) | (1 << 4) | (d << 3) | (i << 2) | (z << 1) | (c));
+		char status = (char) ((n << 7) | (v << 6) | (1 << 5) | (1 << 4)
+				| (d << 3) | (i << 2) | (z << 1) | (c));
 		accessMemory(true, (char) (0x0100 + sp--), status);
 		pc = (char) (accessMemory((char) 0xFFFE) | (accessMemory((char) 0xFFFF) << 8));
 		pc--;
 	}
-	
+
 	public void NMI()
 	{
 		accessMemory((char) (pc + 1));
 		accessMemory(true, (char) (0x0100 + sp--), (char) (pc >> 4));
 		accessMemory(true, (char) (0x0100 + sp--), (char) (pc & 0xFF));
-		char status = (char) ((n << 7) | (v << 6) | (1 << 5) | (1 << 4) | (d << 3) | (i << 2) | (z << 1) | (c));
+		char status = (char) ((n << 7) | (v << 6) | (1 << 5) | (1 << 4)
+				| (d << 3) | (i << 2) | (z << 1) | (c));
 		accessMemory(true, (char) (0x0100 + sp--), status);
 		pc = (char) (accessMemory((char) 0xFFFA) | (accessMemory((char) 0xFFFB) << 8));
 		pc--;
 	}
-	
+
 	public void BVC(char operand)
 	{
 		if (v == 0)
@@ -1254,7 +1294,7 @@ public class CPU
 			pc -= 2;
 		}
 	}
-	
+
 	public void BVS(char operand)
 	{
 		if (v == 1)
@@ -1268,54 +1308,60 @@ public class CPU
 			pc -= 2;
 		}
 	}
-	
+
 	public void CLC()
 	{
 		c = 0;
 	}
-	
+
 	public void CLD()
 	{
 		d = 0;
 	}
-	
+
 	public void CLI()
 	{
 		i = 0;
 	}
-	
+
 	public void CLV()
 	{
 		v = 0;
 	}
-	
+
 	public void CMP(char operand)
 	{
 		c = 0;
-		if (a >= operand) c = 1;
+		if (a >= operand)
+			c = 1;
 		z = 0;
-		if (a == operand) z = 1;
+		if (a == operand)
+			z = 1;
 		n = (byte) (((a - operand) & 0xFF) >> 7);
 	}
-	
+
 	public void CPX(char operand)
 	{
 		c = 0;
-		if (x >= operand) c = 1;
+		if (x >= operand)
+			c = 1;
 		z = 0;
-		if (x == operand) z = 1;
+		if (x == operand)
+			z = 1;
 		n = (byte) (((x - operand) & 0xFF) >> 7);
 	}
-	
+
 	public void CPY(char operand)
 	{
 		c = 0;
-		if (y >= operand) c = 1;
+		if (y >= operand)
+			c = 1;
 		z = 0;
-		if (y == operand) z = 1;
+		if (y == operand)
+			z = 1;
 		n = (byte) (((y - operand) & 0xFF) >> 7);
 	}
-	
+
 	public void DEC(char loc)
 	{
 		char cur = accessMemory(loc);
@@ -1323,36 +1369,40 @@ public class CPU
 		cur &= 0xFF;
 		accessMemory(true, loc, cur);
 		z = 0;
-		if (cur == 0) z = 1;
+		if (cur == 0)
+			z = 1;
 		n = (byte) (cur >> 7);
 	}
-	
+
 	public void DEX()
 	{
 		x--;
 		x &= 0xFF;
 		z = 0;
-		if (x == 0) z = 1;
+		if (x == 0)
+			z = 1;
 		n = (byte) (x >> 7);
 	}
-	
+
 	public void DEY()
 	{
 		y--;
 		y &= 0xFF;
 		z = 0;
-		if (y == 0) z = 1;
+		if (y == 0)
+			z = 1;
 		n = (byte) (y >> 7);
 	}
-	
+
 	public void EOR(char operand)
 	{
 		a ^= operand;
 		z = 0;
-		if (a == 0) z = 1;
+		if (a == 0)
+			z = 1;
 		n = (byte) (a >> 7);
 	}
-	
+
 	public void INC(char loc)
 	{
 		char cur = accessMemory(loc);
@@ -1360,119 +1410,130 @@ public class CPU
 		cur &= 0xFF;
 		accessMemory(true, loc, cur);
 		z = 0;
-		if (cur == 0) z = 1;
+		if (cur == 0)
+			z = 1;
 		n = (byte) (cur >> 7);
 	}
-	
+
 	public void INX()
 	{
 		tick();
 		x++;
 		x &= 0xFF;
 		z = 0;
-		if (x == 0) z = 1;
+		if (x == 0)
+			z = 1;
 		n = (byte) (x >> 7);
 	}
-	
+
 	public void INY()
 	{
 		tick();
 		y++;
 		y &= 0xFF;
 		z = 0;
-		if (y == 0) z = 1;
+		if (y == 0)
+			z = 1;
 		n = (byte) (y >> 7);
 	}
-	
+
 	public void JMP(char operand)
 	{
 		pc = operand;
 		pc--;
 	}
-	
+
 	public void JSR(char operand)
 	{
-		accessMemory(true, (char) (0x0100 + sp--), (char) (pc >> 4));
+		accessMemory(true, (char) (0x0100 + sp--), (char) (pc >> 8));
 		accessMemory(true, (char) (0x0100 + sp--), (char) (pc & 0xFF));
 		pc = operand;
 		pc--;
 	}
-	
+
 	public void LDA(char operand)
 	{
 		a = operand;
 		z = 0;
-		if (a == 0) z = 1;
+		if (a == 0)
+			z = 1;
 		n = (byte) (a >> 7);
 	}
-	
+
 	public void LDX(char operand)
 	{
 		x = operand;
 		z = 0;
-		if (x == 0) z = 1;
+		if (x == 0)
+			z = 1;
 		n = (byte) (x >> 7);
 	}
-	
+
 	public void LDY(char operand)
 	{
 		y = operand;
 		z = 0;
-		if (y == 0) z = 1;
+		if (y == 0)
+			z = 1;
 		n = (byte) (y >> 7);
 	}
-	
+
 	public void LSR()
 	{
 		c = (byte) (a & 0x01);
-		c >>= 1;
+		a >>= 1;
 		z = 0;
-		if (c == 0) z = 1;
+		if (c == 0)
+			z = 1;
 		n = 0;
 	}
-	
+
 	public void LSR(char operand, char loc)
 	{
 		c = (byte) (operand & 0x01);
 		operand >>= 1;
 		accessMemory(true, loc, operand);
 		z = 0;
-		if (operand == 0) z = 1;
+		if (operand == 0)
+			z = 1;
 		n = 0;
 	}
-	
+
 	public void NOP()
 	{
-		
+
 	}
-	
+
 	public void ORA(char operand)
 	{
 		a |= operand;
 		z = 0;
-		if (a == 0) z = 1;
+		if (a == 0)
+			z = 1;
 		n = (byte) (a >> 7);
 	}
-	
+
 	public void PHA()
 	{
 		accessMemory(true, (char) (0x0100 + sp--), a);
 	}
-	
+
 	public void PHP()
 	{
-		char status = (char) ((n << 7) | (v << 6) | (1 << 5) | (1 << 4) | (d << 3) | (i << 2) | (z << 1) | (c));
+		char status = (char) ((n << 7) | (v << 6) | (1 << 5) | (1 << 4)
+				| (d << 3) | (i << 2) | (z << 1) | (c));
 		accessMemory(true, (char) (0x0100 + sp--), status);
 	}
-	
+
 	public void PLA()
 	{
 		a = accessMemory((char) (0x100 + ++sp));
 		z = 0;
-		if (a == 0) z = 1;
+		if (a == 0)
+			z = 1;
 		n = (byte) (a >> 7);
 	}
-	
+
 	public void PLP()
 	{
 		char status = accessMemory((char) (0x100 + ++sp));
@@ -1483,7 +1544,7 @@ public class CPU
 		v = (byte) ((status >> 6) & 0x01);
 		n = (byte) ((status >> 7) & 0x01);
 	}
-	
+
 	public void ROL()
 	{
 		byte oldC = c;
@@ -1492,10 +1553,11 @@ public class CPU
 		a |= oldC;
 		a &= 0xFF;
 		z = 0;
-		if (a == 0) z = 1;
+		if (a == 0)
+			z = 1;
 		n = (byte) (a >> 7);
 	}
-	
+
 	public void ROL(char operand, char loc)
 	{
 		byte oldC = c;
@@ -1505,10 +1567,11 @@ public class CPU
 		operand &= 0xFF;
 		accessMemory(true, loc, operand);
 		z = 0;
-		if (operand == 0) z = 1;
+		if (operand == 0)
+			z = 1;
 		n = (byte) (operand >> 7);
 	}
-	
+
 	public void ROR()
 	{
 		byte oldC = c;
@@ -1517,10 +1580,11 @@ public class CPU
 		a |= (char) (oldC << 7);
 		a &= 0xFF;
 		z = 0;
-		if (a == 0) z = 1;
+		if (a == 0)
+			z = 1;
 		n = (byte) (a >> 7);
 	}
-	
+
 	public void ROR(char operand, char loc)
 	{
 		byte oldC = c;
@@ -1530,10 +1594,11 @@ public class CPU
 		operand &= 0xFF;
 		accessMemory(true, loc, operand);
 		z = 0;
-		if (operand == 0) z = 1;
+		if (operand == 0)
+			z = 1;
 		n = (byte) (operand >> 7);
 	}
-	
+
 	public void RTI()
 	{
 		char status = accessMemory((char) (0x100 + ++sp));
@@ -1545,98 +1610,106 @@ public class CPU
 		n = (byte) ((status >> 7) & 0x01);
 		pc = (char) (accessMemory((char) (0x100 + ++sp)) | (accessMemory((char) (0x100 + ++sp)) << 8));
 	}
-	
+
 	public void RTS()
 	{
 		pc = (char) (accessMemory((char) (0x100 + ++sp)) | (accessMemory((char) (0x100 + ++sp)) << 8));
 	}
-	
+
 	public void SBC(char operand)
 	{
 		char result = (char) (a - operand - (1 - c));
 		c = 1;
-		if (result > 0xFF) c = 0;
+		if (result > 0xFF)
+			c = 0;
 		result &= 0xFF;
 		v = 0;
-		if (((a ^ result) & (operand ^ result) & 0x80) != 0) v = 1;
+		if (((a ^ result) & (operand ^ result) & 0x80) != 0)
+			v = 1;
 		a = result;
 		z = 0;
-		if (a == 0) z = 1;
+		if (a == 0)
+			z = 1;
 		n = (byte) (a >> 7);
 	}
-	
+
 	public void SEC()
 	{
 		c = 1;
 	}
-	
+
 	public void SED()
 	{
 		d = 1;
 	}
-	
+
 	public void SEI()
 	{
 		i = 1;
 	}
-	
+
 	public void STA(char loc)
 	{
 		accessMemory(true, loc, a);
 	}
-	
+
 	public void STX(char loc)
 	{
 		accessMemory(true, loc, x);
 	}
-	
+
 	public void STY(char loc)
 	{
 		accessMemory(true, loc, y);
 	}
-	
+
 	public void TAX()
 	{
 		x = a;
 		z = 0;
-		if (x == 0) z = 1;
+		if (x == 0)
+			z = 1;
 		n = (byte) (x >> 7);
 	}
-	
+
 	public void TAY()
 	{
 		y = a;
 		z = 0;
-		if (y == 0) z = 1;
+		if (y == 0)
+			z = 1;
 		n = (byte) (y >> 7);
 	}
-	
+
 	public void TSX()
 	{
 		x = sp;
 		z = 0;
-		if (x == 0) z = 1;
+		if (x == 0)
+			z = 1;
 		n = (byte) (x >> 7);
 	}
-	
+
 	public void TXA()
 	{
 		a = x;
 		z = 0;
-		if (a == 0) z = 1;
+		if (a == 0)
+			z = 1;
 		n = (byte) (a >> 7);
 	}
-	
+
 	public void TXS()
 	{
 		sp = x;
 	}
-	
+
 	public void TYA()
 	{
 		a = y;
 		z = 0;
-		if (a == 0) z = 1;
+		if (a == 0)
+			z = 1;
 		n = (byte) (a >> 7);
 	}
 }
