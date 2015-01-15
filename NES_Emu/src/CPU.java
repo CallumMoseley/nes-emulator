@@ -24,10 +24,10 @@ public class CPU
 
 		try
 		{
-			byte[] q = Files.readAllBytes(Paths.get("AllSuiteA.bin"));
+			byte[] q = Files.readAllBytes(Paths.get("ehbasic.bin"));
 			for (int i = 0; i < q.length; i++)
 			{
-				memory[i + 0x4000] = (char) (q[i] & 0xFF);
+				memory[i + 0xC000] = (char) (q[i] & 0xFF);
 			}
 		}
 		catch (IOException e)
@@ -73,10 +73,6 @@ public class CPU
 
 	public void op()
 	{
-		if (pc == 0x45C0)
-		{
-			return;
-		}
 		char opcode = accessMemory(pc);
 		if (reset)
 		{
@@ -85,8 +81,8 @@ public class CPU
 			pc--;
 			i = 1;
 			d = (byte) ((int) (Math.random() * 2));
-			// memory[0x2000] = 0x00;
-			// memory[0x2001] = 0x00;
+//			memory[0x2000] = 0x00;
+//			memory[0x2001] = 0x00;
 			tick(5);
 		}
 		else if (nmi)
@@ -1102,6 +1098,10 @@ public class CPU
 
 	public char accessMemory(boolean write, char address, char b)
 	{
+		if (write && (address == 0xF001))
+		{
+			System.out.print(b);
+		}
 		if (reset && write)
 			write = false;
 		tick();
@@ -1176,7 +1176,6 @@ public class CPU
 			{
 				tick();
 			}
-			pc -= 2;
 		}
 	}
 
@@ -1190,7 +1189,6 @@ public class CPU
 			{
 				tick();
 			}
-			pc -= 2;
 		}
 	}
 
@@ -1226,7 +1224,6 @@ public class CPU
 			{
 				tick();
 			}
-			pc -= 2;
 		}
 	}
 
@@ -1253,7 +1250,6 @@ public class CPU
 			{
 				tick();
 			}
-			pc -= 2;
 		}
 	}
 
@@ -1291,7 +1287,6 @@ public class CPU
 			{
 				tick();
 			}
-			pc -= 2;
 		}
 	}
 
@@ -1305,7 +1300,6 @@ public class CPU
 			{
 				tick();
 			}
-			pc -= 2;
 		}
 	}
 
@@ -1609,6 +1603,7 @@ public class CPU
 		v = (byte) ((status >> 6) & 0x01);
 		n = (byte) ((status >> 7) & 0x01);
 		pc = (char) (accessMemory((char) (0x100 + ++sp)) | (accessMemory((char) (0x100 + ++sp)) << 8));
+		pc--;
 	}
 
 	public void RTS()

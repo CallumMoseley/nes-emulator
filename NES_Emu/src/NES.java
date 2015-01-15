@@ -5,10 +5,20 @@ public class NES
 	public NES()
 	{
 		cpu = new CPU();
-		
-		for (;;)
+	}
+	
+	public void startCPU()
+	{
+		Thread cpuThread = new Thread()
 		{
-			cpu.op();
-		}
+			public void run()
+			{
+				for (;;)
+				{
+					cpu.op();
+				}
+			}
+		};
+		cpuThread.start();
 	}
 }
