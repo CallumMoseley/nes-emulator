@@ -6,16 +6,16 @@ import java.nio.file.Paths;
 
 public class CPU
 {
-	public char a, x, y, sp;
-	public byte c, z, i, d, v, n;
-	public char pc;
+	private char a, x, y, sp;
+	private byte c, z, i, d, v, n;
+	private char pc;
 
-	public char[] memory = new char[0x10000];
+	private char[] memory = new char[0x10000];
 
-	public PPU ppu;
-	public APU apu;
+	private PPU ppu;
+	private APU apu;
 
-	public boolean reset, nmi, irq;
+	private boolean reset, nmi, irq;
 
 	public CPU()
 	{
@@ -52,6 +52,21 @@ public class CPU
 
 		sp = 0xFF;
 		pc = 0x00;
+	}
+	
+	public void setPPU(PPU ppu2)
+	{
+		ppu = ppu2;
+	}
+
+	public void triggerNMI()
+	{
+		nmi = true;
+	}
+	
+	public void reset()
+	{
+		reset = true;
 	}
 
 	public void tick()
@@ -1263,6 +1278,7 @@ public class CPU
 		accessMemory(true, (char) (0x0100 + sp--), status);
 		pc = (char) (accessMemory((char) 0xFFFE) | (accessMemory((char) 0xFFFF) << 8));
 		pc--;
+		tick();
 	}
 
 	public void NMI()
@@ -1275,6 +1291,7 @@ public class CPU
 		accessMemory(true, (char) (0x0100 + sp--), status);
 		pc = (char) (accessMemory((char) 0xFFFA) | (accessMemory((char) 0xFFFB) << 8));
 		pc--;
+		tick();
 	}
 
 	public void BVC(char operand)
