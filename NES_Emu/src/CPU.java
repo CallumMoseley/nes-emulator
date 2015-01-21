@@ -12,6 +12,7 @@ public class CPU
 
 	private char[] memory = new char[0x10000];
 
+	private GamePak game;
 	private PPU ppu;
 	private APU apu;
 
@@ -58,6 +59,11 @@ public class CPU
 	{
 		ppu = ppu2;
 	}
+	
+	public void setGamePak(GamePak g)
+	{
+		game = g;
+	}
 
 	public void triggerNMI()
 	{
@@ -96,8 +102,6 @@ public class CPU
 			pc--;
 			i = 1;
 			d = (byte) ((int) (Math.random() * 2));
-//			memory[0x2000] = 0x00;
-//			memory[0x2001] = 0x00;
 			tick(5);
 		}
 		else if (nmi)
@@ -1111,16 +1115,36 @@ public class CPU
 		pc++;
 	}
 
-	public char accessMemory(boolean write, char address, char b)
+	public char accessMemory(boolean write, char addr, char b)
 	{
 		if (reset && write)
 			write = false;
 		tick();
-		if (!write)
+		if (addr < 0x2000)
 		{
-			return (char) (memory[address] & 0xFF);
+			// Internal RAM
+			if (!write)
+			{
+				return (char) (memory[addr] & 0xFF);
+			}
+			else
+			{
+				memory[addr] = b;
+			}
 		}
-		memory[address] = b;
+		else if (addr < 0x4000)
+		{
+			// PPU registers
+		}
+		else if (addr < 0x8000)
+		{
+			// APU registers
+		}
+		else
+		{
+			// Cartridge access
+			return game.access(write, addr, b);
+		}
 		return 0;
 	}
 
