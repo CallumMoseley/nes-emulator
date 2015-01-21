@@ -1,3 +1,5 @@
+import java.io.File;
+
 public class NES
 {
 	private CPU cpu;
@@ -6,6 +8,15 @@ public class NES
 	
 	public NES()
 	{
+		GamePak g = new GamePak();
+		try
+		{
+			g.load(new File("smb1.nes"));
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+		}
 		cpu = new CPU();
 		ppu = new PPU();
 		cpu.setPPU(ppu);

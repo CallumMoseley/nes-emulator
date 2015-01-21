@@ -1113,10 +1113,6 @@ public class CPU
 
 	public char accessMemory(boolean write, char address, char b)
 	{
-		if (write && (address == 0xF001))
-		{
-			System.out.print(b);
-		}
 		if (reset && write)
 			write = false;
 		tick();

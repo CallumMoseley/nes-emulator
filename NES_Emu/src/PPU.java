@@ -1,8 +1,9 @@
 public class PPU
 {
 	private CPU cpu;
-	
 	private char[] registers;
+	private int scanline;
+	private int x;
 	
 	public PPU()
 	{
@@ -19,8 +20,17 @@ public class PPU
 		cpu = cpu2;
 	}
 	
-	public void readRegister(int n)
+	public char access(boolean write, char addr, char b)
 	{
-		registers[n] = CPU.readRegister(n);
+		addr -= 0x2000;
+		if (write)
+		{
+			registers[addr] = b;
+		}
+		else
+		{
+			return registers[addr];
+		}
+		return 0;
 	}
 }
