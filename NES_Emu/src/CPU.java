@@ -1111,6 +1111,10 @@ public class CPU
 			TYA();
 			tick();
 		}
+		else
+		{
+			System.out.printf("Invalid opcode at 0x%04x%n", (int)pc);
+		}
 
 		pc++;
 	}

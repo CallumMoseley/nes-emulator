@@ -23,15 +23,20 @@ public class GamePak {
 		char flags2 = (char) fr.read();
 		
 		mapper = (flags2 & 0xF0) | (flags1 >> 4);
+		
+		// Blank bytes
 		for (int i = 0; i < 8; i++)
 		{
 			fr.read();
 		}
 		
+		// Read in PRG_ROM banks
 		for (int i = 0; i < prgSize; i++)
 		{
 			fr.read(PRG_ROM[i], 0, 0x4000);
 		}
+		
+		// Read in CHR_ROM (VROM)
 		for (int i = 0; i < chrSize; i++)
 		{
 			fr.read(CHR_ROM[i], 0, 0x2000);
@@ -60,7 +65,7 @@ public class GamePak {
 			}
 			else
 			{
-				PRG_ROM[1][addr - 0x8000] = b;
+				PRG_ROM[1][addr - 0xC000] = b;
 			}
 		}
 		return 0;
