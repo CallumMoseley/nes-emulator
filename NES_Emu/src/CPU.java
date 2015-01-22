@@ -1,6 +1,7 @@
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.HashMap;
 
 // TEST CODE: https://code.google.com/p/hmc-6502/source/browse/trunk/emu/testvectors/AllSuiteA.asm
 
@@ -320,23 +321,23 @@ public class CPU
 		}
 		else if (opcode == 0x18)
 		{
-			tick(2);
 			CLC();
+			tick();
 		}
 		else if (opcode == 0xD8)
 		{
-			tick(2);
 			CLD();
+			tick();
 		}
 		else if (opcode == 0x58)
 		{
-			tick(2);
 			CLI();
+			tick();
 		}
 		else if (opcode == 0xB8)
 		{
-			tick(2);
 			CLV();
+			tick();
 		}
 		else if (opcode == 0xC9 || opcode == 0xC5 || opcode == 0xD5
 				|| opcode == 0xCD || opcode == 0xDD || opcode == 0xD9
@@ -465,12 +466,12 @@ public class CPU
 		else if (opcode == 0xCA)
 		{
 			DEX();
-			tick(2);
+			tick();
 		}
 		else if (opcode == 0x88)
 		{
 			DEY();
-			tick(2);
+			tick();
 		}
 		else if (opcode == 0x49 || opcode == 0x45 || opcode == 0x55
 				|| opcode == 0x4D || opcode == 0x5D || opcode == 0x59
@@ -1113,7 +1114,7 @@ public class CPU
 		}
 		else
 		{
-			System.out.printf("Invalid opcode at 0x%04x%n", (int)pc);
+			System.out.printf("Invalid opcode 0x%02x at 0x%04x%n", (int)opcode, (int)pc);
 		}
 
 		pc++;
@@ -1138,11 +1139,11 @@ public class CPU
 		}
 		else if (addr < 0x4000)
 		{
-			// PPU registers
+			return ppu.access(write, addr, b);
 		}
 		else if (addr < 0x8000)
 		{
-			// APU registers
+			// APU registers and joypads
 		}
 		else
 		{
@@ -1285,7 +1286,7 @@ public class CPU
 		{
 			tick();
 			pc += operand;
-			if (((pc - operand) & 0x0F00) != (pc & 0x0F00))
+			if (((pc - operand) & 0xFF00) != (pc & 0xFF00))
 			{
 				tick();
 			}

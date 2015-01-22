@@ -11,7 +11,7 @@ public class NES
 		GamePak g = new GamePak();
 		try
 		{
-			g.load(new File("smb1.nes"));
+			g.load(new File("SMB/smb.nes"));
 		}
 		catch (Exception e)
 		{

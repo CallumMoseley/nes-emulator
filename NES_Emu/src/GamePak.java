@@ -1,5 +1,5 @@
 import java.io.File;
-import java.io.FileReader;
+import java.io.FileInputStream;
 
 public class GamePak {
 	
@@ -10,38 +10,44 @@ public class GamePak {
 	
 	public void load(File f) throws Exception
 	{
-		FileReader fr = new FileReader(f);
+		FileInputStream fis = new FileInputStream(f);
 		for (int i = 0; i < 4; i++)
-			fr.read();
-		int prgSize = fr.read();
-		int chrSize = fr.read();
+			fis.read();
+		int prgSize = fis.read();
+		int chrSize = fis.read();
 		
 		PRG_ROM = new char[prgSize][0x4000];
 		CHR_ROM = new char[chrSize][0x2000];
 		
-		char flags1 = (char) fr.read();
-		char flags2 = (char) fr.read();
+		char flags1 = (char) fis.read();
+		char flags2 = (char) fis.read();
 		
 		mapper = (flags2 & 0xF0) | (flags1 >> 4);
 		
 		// Blank bytes
 		for (int i = 0; i < 8; i++)
 		{
-			fr.read();
+			fis.read();
 		}
 		
 		// Read in PRG_ROM banks
 		for (int i = 0; i < prgSize; i++)
 		{
-			fr.read(PRG_ROM[i], 0, 0x4000);
+			for (int j = 0; j < 0x4000; j++)
+			{
+				PRG_ROM[i][j] = (char) fis.read();
+			}
 		}
 		
 		// Read in CHR_ROM (VROM)
 		for (int i = 0; i < chrSize; i++)
 		{
-			fr.read(CHR_ROM[i], 0, 0x2000);
+			for (int j = 0; j < 0x2000; j++)
+			{
+				CHR_ROM[i][j] = (char) fis.read();
+			}
 		}
-		fr.close();
+		fis.close();
 	}
 	
 	public char access(boolean write, char addr, char b)

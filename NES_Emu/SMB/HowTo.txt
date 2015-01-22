@@ -1,0 +1,74 @@
+THIS CONTAINS:
+
+* ca65 - a 6502 assembly compiler from http://www.cc65.org/
+* ld65 - a 6502 linker from http://www.cc65.org/
+* smbdis.asm - a comprehensive Super Mario Bros. disassembly
+* smb.chr - Super Mario Bros. graphics (character ROM data)
+* smb.hdr - Super Mario Bros. ROM header (iNES header)
+* MAKESMB.BAT - a batch file I made that automates the compilation process.
+* 6502jsm.doc - a summary of 6502 instructions.
+
+HOW TO CREATE SMB.NES FROM SMBDIS.ASM: 
+
+1) Edit and save smbdis.asm
+2) Run MAKESMB.BAT
+Now you have a NES ROM.
+
+HOW TO CHANGE MARIO'S PHYSICS:
+
+Consider lines 6016 onward:
+[code]
+JumpMForceData:
+      .byte $20, $20, $1e, $28, $28, $0d, $04
+
+FallMForceData:
+      .byte $70, $70, $60, $90, $90, $0a, $09
+
+PlayerYSpdData:
+      .byte $fc, $fc, $fc, $fb, $fb, $fe, $ff
+
+InitMForceData:
+      .byte $00, $00, $00, $00, $00, $80, $00
+
+MaxLeftXSpdData:
+      .byte $d8, $e8, $f0
+
+MaxRightXSpdData:
+      .byte $28, $18, $10
+      .byte $0c ;used for pipe intros
+
+FrictionData:
+      .byte $e4, $98, $d0
+[/code]
+JumpMForceData determines how Mario's jumping arc decays when he's moving upward. Larger values make for shorter jump heights.
+FallMForceData determines how fast Mario falls. Larger values make for faster fall speeds.
+PlayerYSpdData seems to be a negative signed value determining Mario's initial jump force, depending on his current running speed. Values below $fa result in pretty ridiculous jump heights.
+MaxLeftXSpdData (negative) and MaxRightXSpdData (positive) determine how fast Mario runs, walks, and water-walks, respecively.
+FrictionData determines how much friction applies to Mario given his current speed, from fastest to slowest. 
+
+
+HOW TO MAKE MARIO JUMP IN MIDAIR
+
+Consider lines 6079 and co.:
+[code]
+           lda SwimmingFlag           ;if swimming flag not set, jump to do something else
+           beq NoJump                 ;to prevent midair jumping, otherwise continue
+[/code]
+As the comment says, if you replace these with
+[code]
+           nop
+           nop
+           nop
+           nop
+[/code]
+then Mario can jump in midair without limit, as he can in the Air hack.
+
+
+HOW TO MAKE REVIVING GOOMBAS
+
+Consider lines 11495 and co.:
+[code]
+RevivalRateData:
+      .byte $10, $0b
+[/code]
+The first hex number determines how long it takes for a stomped enemy to change state. To make reviving Goombas, make it $d or lower. (The second number is used in the Second Quest.)
