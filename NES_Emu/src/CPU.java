@@ -1,10 +1,3 @@
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.HashMap;
-
-// TEST CODE: https://code.google.com/p/hmc-6502/source/browse/trunk/emu/testvectors/AllSuiteA.asm
-
 public class CPU
 {
 	private char a, x, y, sp;
@@ -21,22 +14,6 @@ public class CPU
 
 	public CPU()
 	{
-		ppu = new PPU();
-		apu = new APU();
-
-		try
-		{
-			byte[] q = Files.readAllBytes(Paths.get("ehbasic.bin"));
-			for (int i = 0; i < q.length; i++)
-			{
-				memory[i + 0xC000] = (char) (q[i] & 0xFF);
-			}
-		}
-		catch (IOException e)
-		{
-			e.printStackTrace();
-		}
-
 		reset = true;
 		nmi = false;
 		irq = false;
@@ -89,7 +66,7 @@ public class CPU
 			{
 				ppu.tick();
 			}
-			apu.tick();
+			//apu.tick();
 		}
 	}
 
@@ -1139,7 +1116,7 @@ public class CPU
 		}
 		else if (addr < 0x4000)
 		{
-			return ppu.access(write, addr, b);
+			return ppu.accessRegisters(write, addr, b);
 		}
 		else if (addr < 0x8000)
 		{
@@ -1211,11 +1188,11 @@ public class CPU
 		if (c == 0)
 		{
 			tick();
-			pc += operand;
-			if (((pc - operand) & 0x0F00) != (pc & 0x0F00))
+			if (((pc + operand) & 0xFF00) != (pc & 0xFF00))
 			{
 				tick();
 			}
+			pc = (char) ((pc & 0xFF00) | ((pc + operand) & 0x00FF));
 		}
 	}
 
@@ -1224,11 +1201,11 @@ public class CPU
 		if (c == 1)
 		{
 			tick();
-			pc += operand;
-			if (((pc - operand) & 0x0F00) != (pc & 0x0F00))
+			if (((pc - operand) & 0xFF00) != (pc & 0xFF00))
 			{
 				tick();
 			}
+			pc = (char) ((pc & 0xFF00) | ((pc + operand) & 0x00FF));
 		}
 	}
 
@@ -1237,11 +1214,11 @@ public class CPU
 		if (z == 1)
 		{
 			tick();
-			pc += operand;
-			if (((pc - operand) & 0x0F00) != (pc & 0x0F00))
+			if (((pc - operand) & 0xFF00) != (pc & 0xFF00))
 			{
 				tick();
 			}
+			pc = (char) ((pc & 0xFF00) | ((pc + operand) & 0x00FF));
 		}
 	}
 
@@ -1259,11 +1236,11 @@ public class CPU
 		if (n == 1)
 		{
 			tick();
-			pc += operand;
-			if (((pc - operand) & 0x0F00) != (pc & 0x0F00))
+			if (((pc - operand) & 0xFF00) != (pc & 0xFF00))
 			{
 				tick();
 			}
+			pc = (char) ((pc & 0xFF00) | ((pc + operand) & 0x00FF));
 		}
 	}
 
@@ -1272,11 +1249,11 @@ public class CPU
 		if (z == 0)
 		{
 			tick();
-			pc += operand;
-			if (((pc - operand) & 0x0F00) != (pc & 0x0F00))
+			if (((pc - operand) & 0xFF00) != (pc & 0xFF00))
 			{
 				tick();
 			}
+			pc = (char) ((pc & 0xFF00) | ((pc + operand) & 0x00FF));
 		}
 	}
 
@@ -1285,11 +1262,11 @@ public class CPU
 		if (n == 0)
 		{
 			tick();
-			pc += operand;
 			if (((pc - operand) & 0xFF00) != (pc & 0xFF00))
 			{
 				tick();
 			}
+			pc = (char) ((pc & 0xFF00) | ((pc + operand) & 0x00FF));
 		}
 	}
 

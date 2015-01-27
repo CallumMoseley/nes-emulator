@@ -22,6 +22,7 @@ public class NES
 		cpu.setPPU(ppu);
 		cpu.setGamePak(g);
 		ppu.setCPU(cpu);
+		ppu.setGamePak(g);
 	}
 	
 	public void startCPU()
