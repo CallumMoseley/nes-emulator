@@ -23,7 +23,11 @@ public class PPU
 	private byte bgPatternTable;
 	private byte spriteSize;
 	
+	private boolean slave;
 	private boolean vBlankNMI;
+	private boolean vBlank;
+	private boolean spriteHit;
+	private boolean spriteOverflow;
 	
 	public PPU()
 	{
@@ -34,7 +38,27 @@ public class PPU
 
 	public void tick()
 	{
+		if (scanline == 241 && x == 1)
+		{
+			vBlank = true;
+		}
+		if (vBlankNMI && vBlank)
+		{
+			cpu.triggerNMI();
+		}
 		
+		x++;
+		if (x == 341)
+		{
+			x = 0;
+			scanline++;
+			
+			if (scanline == 261)
+			{
+				scanline = -1;
+				vBlank = false;
+			}
+		}
 	}
 	
 	public void powerUp()
@@ -47,7 +71,7 @@ public class PPU
 		registers[6] = 0x00;
 		registers[7] = 0x00;
 		frameNo = 0;
-		scanline = 0;
+		scanline = -1;
 		x = 0;
 		scrollWrites = 0;
 		addrWrites = 0;
@@ -98,8 +122,9 @@ public class PPU
 				}
 				spritePatternTable = (byte) ((b & 0x08) >> 3);
 				bgPatternTable = (byte) ((b & 0x10) >> 4);
-				spriteSize = (byte) ((b & 0x20) >> 4);
-				
+				spriteSize = (byte) ((b & 0x20) >> 5);
+				slave = ((byte) ((b & 0x40) >> 6) == 1);
+				vBlankNMI = ((byte) (b >> 7) == 1);
 			}
 			// OAMADDR
 			if (addr == 0x2003)
@@ -150,7 +175,22 @@ public class PPU
 		// Read registers
 		else
 		{
-			
+			// PPUSTATUS
+			if (addr == 0x2002)
+			{
+				if (vBlank)
+				{
+					vBlank = false;
+					return (char) ((1 << 7) | ((spriteHit ? 1 : 0) << 6) | ((spriteOverflow ? 1 : 0) << 5));
+				}
+			}
+			//PPUDATA
+			else if (addr == 0x2007)
+			{
+				char q = memory[this.addr];
+				this.addr += memInc;
+				return q;
+			}
 		}
 		return 0;
 	}
