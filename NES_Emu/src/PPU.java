@@ -28,6 +28,7 @@ public class PPU
 	private boolean vBlank;
 	private boolean spriteHit;
 	private boolean spriteOverflow;
+	private boolean render;
 	
 	public PPU()
 	{
@@ -38,6 +39,10 @@ public class PPU
 
 	public void tick()
 	{
+		if (scanline == 0 && x == 0 && frameNo % 2 == 1)
+		{
+			x++;
+		}
 		if (scanline == 241 && x == 1)
 		{
 			vBlank = true;
@@ -47,15 +52,17 @@ public class PPU
 			cpu.triggerNMI();
 		}
 		
+		// Render pixel
+		
 		x++;
 		if (x == 341)
 		{
 			x = 0;
 			scanline++;
-			
-			if (scanline == 261)
+			if (scanline == 262)
 			{
-				scanline = -1;
+				scanline = 0;
+				frameNo++;
 				vBlank = false;
 			}
 		}
@@ -98,7 +105,7 @@ public class PPU
 		// Pattern table access from GamePak
 		if (addr < 0x2000)
 		{
-			
+			 
 		}
 		return 0;
 	}
@@ -125,6 +132,11 @@ public class PPU
 				spriteSize = (byte) ((b & 0x20) >> 5);
 				slave = ((byte) ((b & 0x40) >> 6) == 1);
 				vBlankNMI = ((byte) (b >> 7) == 1);
+			}
+			// PPUMASK
+			if (addr == 0x2001)
+			{
+				render = !(Utils.getBit(b, 3) == 0) && (Utils.getBit(b, 4) == 0);
 			}
 			// OAMADDR
 			if (addr == 0x2003)

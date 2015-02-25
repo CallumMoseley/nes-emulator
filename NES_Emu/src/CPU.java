@@ -1,5 +1,7 @@
 public class CPU
 {
+	private final float CLOCK_SPEED = 1.79f; // MHz
+
 	private char a, x, y, sp;
 	private byte c, z, i, d, v, n;
 	private char pc;
@@ -11,6 +13,10 @@ public class CPU
 	private APU apu;
 
 	private boolean reset, nmi, irq;
+
+	private long lastClock;
+	private long cycleCount;
+	private long instructionCount;
 
 	public CPU()
 	{
@@ -31,13 +37,15 @@ public class CPU
 
 		sp = 0xFF;
 		pc = 0x00;
+
+		lastClock = System.nanoTime();
 	}
-	
+
 	public void setPPU(PPU ppu2)
 	{
 		ppu = ppu2;
 	}
-	
+
 	public void setGamePak(GamePak g)
 	{
 		game = g;
@@ -47,7 +55,7 @@ public class CPU
 	{
 		nmi = true;
 	}
-	
+
 	public void reset()
 	{
 		reset = true;
@@ -60,22 +68,38 @@ public class CPU
 
 	public void tick(int n)
 	{
+		cycleCount++;
 		for (int i = 0; i < n; i++)
 		{
 			for (int j = 0; j < 3; j++)
 			{
 				ppu.tick();
 			}
-			//apu.tick();
+			// apu.tick();
 		}
+		
+//		try
+//		{
+//			long nanoDelay = (long) (1000000000 / (CLOCK_SPEED * 1000) - (System.nanoTime() - lastClock));
+//			long milliDelay = nanoDelay / 1000000000;
+//			nanoDelay %= 1000000000;
+//			Thread.sleep(Math.max(0, milliDelay), Math.max(0, (int)nanoDelay));
+//			lastClock = System.nanoTime();
+//		}
+//		catch (InterruptedException e)
+//		{
+//			e.printStackTrace();
+//		}
 	}
-
+	
 	public void op()
 	{
 		char opcode = accessMemory(pc);
 		if (reset)
 		{
 			reset = false;
+			cycleCount = 0;
+			instructionCount = 0;
 			pc = (char) (accessMemory((char) 0xFFFC) | (accessMemory((char) 0xFFFD) << 8));
 			pc--;
 			i = 1;
@@ -84,6 +108,7 @@ public class CPU
 		}
 		else if (nmi)
 		{
+			nmi = false;
 			NMI();
 		}
 		else if (irq && i != 1)
@@ -1091,7 +1116,8 @@ public class CPU
 		}
 		else
 		{
-			System.out.printf("Invalid opcode 0x%02x at 0x%04x%n", (int)opcode, (int)pc);
+			System.out.printf("Invalid opcode 0x%02x at 0x%04x%n",
+					(int) opcode, (int) pc);
 		}
 
 		pc++;
@@ -1185,40 +1211,43 @@ public class CPU
 
 	public void BCC(char operand)
 	{
+		byte o = (byte)operand;
 		if (c == 0)
 		{
 			tick();
-			if (((pc + operand) & 0xFF00) != (pc & 0xFF00))
+			if (((pc + o) & 0xFF00) != (pc & 0xFF00))
 			{
 				tick();
 			}
-			pc = (char) ((pc & 0xFF00) | ((pc + operand) & 0x00FF));
+			pc = (char) (pc + o);
 		}
 	}
 
 	public void BCS(char operand)
 	{
+		byte o = (byte)operand;
 		if (c == 1)
 		{
 			tick();
-			if (((pc - operand) & 0xFF00) != (pc & 0xFF00))
+			if (((pc + o) & 0xFF00) != (pc & 0xFF00))
 			{
 				tick();
 			}
-			pc = (char) ((pc & 0xFF00) | ((pc + operand) & 0x00FF));
+			pc = (char) (pc + o);
 		}
 	}
 
 	public void BEQ(char operand)
 	{
+		byte o = (byte)operand;
 		if (z == 1)
 		{
 			tick();
-			if (((pc - operand) & 0xFF00) != (pc & 0xFF00))
+			if (((pc + o) & 0xFF00) != (pc & 0xFF00))
 			{
 				tick();
 			}
-			pc = (char) ((pc & 0xFF00) | ((pc + operand) & 0x00FF));
+			pc = (char) (pc + o);
 		}
 	}
 
@@ -1233,40 +1262,43 @@ public class CPU
 
 	public void BMI(char operand)
 	{
+		byte o = (byte)operand;
 		if (n == 1)
 		{
 			tick();
-			if (((pc - operand) & 0xFF00) != (pc & 0xFF00))
+			if (((pc + o) & 0xFF00) != (pc & 0xFF00))
 			{
 				tick();
 			}
-			pc = (char) ((pc & 0xFF00) | ((pc + operand) & 0x00FF));
+			pc = (char) (pc + o);
 		}
 	}
 
 	public void BNE(char operand)
 	{
+		byte o = (byte)operand;
 		if (z == 0)
 		{
 			tick();
-			if (((pc - operand) & 0xFF00) != (pc & 0xFF00))
+			if (((pc + o) & 0xFF00) != (pc & 0xFF00))
 			{
 				tick();
 			}
-			pc = (char) ((pc & 0xFF00) | ((pc + operand) & 0x00FF));
+			pc = (char) (pc + o);
 		}
 	}
 
 	public void BPL(char operand)
 	{
+		byte o = (byte)operand;
 		if (n == 0)
 		{
 			tick();
-			if (((pc - operand) & 0xFF00) != (pc & 0xFF00))
+			if (((pc + o) & 0xFF00) != (pc & 0xFF00))
 			{
 				tick();
 			}
-			pc = (char) ((pc & 0xFF00) | ((pc + operand) & 0x00FF));
+			pc = (char) (pc + o);
 		}
 	}
 
@@ -1298,27 +1330,29 @@ public class CPU
 
 	public void BVC(char operand)
 	{
+		byte o = (byte)operand;
 		if (v == 0)
 		{
 			tick();
-			pc += operand;
-			if (((pc - operand) & 0x0F00) != (pc & 0x0F00))
+			if (((pc + o) & 0xFF00) != (pc & 0xFF00))
 			{
 				tick();
 			}
+			pc = (char) (pc + o);
 		}
 	}
 
 	public void BVS(char operand)
 	{
+		byte o = (byte)operand;
 		if (v == 1)
 		{
 			tick();
-			pc += operand;
-			if (((pc - operand) & 0x0F00) != (pc & 0x0F00))
+			if (((pc + o) & 0xFF00) != (pc & 0xFF00))
 			{
 				tick();
 			}
+			pc = (char) (pc + o);
 		}
 	}
 
@@ -1726,4 +1760,25 @@ public class CPU
 			z = 1;
 		n = (byte) (a >> 7);
 	}
+	
+	// Debugging stuff
+	
+	//						   0     1     2     3     4     5     6     7     8     9     A     B     C     D     E     F
+	final String[] opcodeNames = {
+							  "BRK","ORA","...","...","...","ORA","ASL","...","PHP","ORA","ASL","...","...","ORA","ASL","...", // 0
+							  "BPL","ORA","...","...","...","ORA","ASL","...","CLC","ORA","...","...","...","ORA","ASL","...", // 1
+							  "JSR","AND","...","...","BIT","AND","ROL","...","PLP","AND","ROL","...","BIT","AND","ROL","...", // 2
+							  "BMI","AND","...","...","...","AND","ROL","...","SEC","AND","...","...","...","AND","ROL","...", // 3
+							  "RTI","EOR","...","...","...","EOR","LSR","...","PHA","EOR","LSR","...","JMP","EOR","LSR","...", // 4
+							  "BVC","EOR","...","...","...","EOR","LSR","...","CLI","EOR","...","...","...","EOR","LSR","...", // 5
+							  "RTS","ADC","...","...","...","ADC","ROR","...","PLA","ADC","ROR","...","JMP","ADC","ROR","...", // 6
+							  "BVS","ADC","...","...","...","ADC","ROR","...","SEI","ADC","...","...","...","ADC","ROR","...", // 7
+							  "...","STA","...","...","STY","STA","STX","...","DEY","STA","TSX","...","STY","STA","STX","...", // 8
+							  "BCC","STA","...","...","STY","STA","STX","...","TYA","STA","TXS","...","...","STA","...","...", // 9
+							  "LDY","LDA","LDX","...","LDY","LDA","LDX","...","TAY","LDA","TAX","...","LDY","LDA","LDX","...", // A
+							  "BCS","LDA","...","...","LDY","LDA","LDX","...","CLV","LDA","...","...","LDY","LDA","LDX","...", // B
+							  "CPY","CMP","...","...","CPY","CMP","DEC","...","INY","CMP","DEX","...","CPY","CMP","DEC","...", // C
+							  "BNE","CMP","...","...","...","CMP","DEC","...","CLD","CMP","...","...","...","CMP","DEC","...", // D
+							  "CPX","SBC","...","...","CPX","SBC","INC","...","INX","SBC","NOP","...","CPX","SBC","INC","...", // E
+							  "BEQ","SBC","...","...","...","SBC","INC","...","SED","SBC","...","...","...","SBC","INC","..."};// F
 }
