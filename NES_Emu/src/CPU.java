@@ -65,20 +65,236 @@ public class CPU
 	private void ADC(int operand)
 	{
 		int sum = memory[operand] + a + c;
+		c = 0;
 		if (sum > 0xFF)
-		{
 			c = 1;
-		}
-		else
-		{
-			c = 0;
-		}
 		sum &= 0xFF;
-		n = sum >> 7;
-		
+		v = 0;
+		if (((a ^ sum) & (operand ^ result) & 0x80) != 0)
+			v = 1;
+		a = sum;
+		n = a >> 7;
+		z = 0;
+		if (a == 0)
+			z = 1;
+	}
+	
+	private void AND(int operand)
+	{
+		a &= operand;
+		z = 0;
+		if (a == 0)
+			z = 1;
+		n = a >> 7;
+	}
+	
+	private void ASL()
+	{
+		c = a >> 7;
+		a <<= 1;
+		a &= 0xFF;
+		z = 0;
+		if (a == 0)
+			z = 1;
+		n = a >> 7;
+	}
+	
+	private void ASL(int operand)
+	{
+		c = memory[operand] >> 7;
+		memory[operand] <<= 1;
+		memory[operand] &= 0xFF;
+		z = 0;
+		if (memory[operand] == 0)
+			z = 1;
+		n = memory[operand] >> 7;
+	}
+	
+	private void BCC(int operand)
+	{
+		if (c == 0)
+		{
+			tick();
+			if (operand > 127)
+			{
+				operand -= 256;
+			}
+			int page = pc & 0xFF00;
+			pc += operand;
+			if ((pc & 0xFF00) != page)
+			{
+				tick();
+			}
+		}
+	}
+	
+	private void BCS(int operand)
+	{
+		if (c == 1)
+		{
+			tick();
+			if (operand > 127)
+			{
+				operand -= 256;
+			}
+			int page = pc & 0xFF00;
+			pc += operand;
+			if ((pc & 0xFF00) != page)
+			{
+				tick();
+			}
+		}
+	}
+	
+	private void BEQ(int operand)
+	{
+		if (z == 1)
+		{
+			tick();
+			if (operand > 127)
+			{
+				operand -= 256;
+			}
+			int page = pc & 0xFF00;
+			pc += operand;
+			if ((pc & 0xFF00) != page)
+			{
+				tick();
+			}
+		}
+	}
+	
+	private void BIT(int operand)
+	{
+		int r = a & memory[operand];
+		z = 0;
+		if (r == 0)
+			z = 1;
+		v = (memory[operand] & 0x80) >> 6;
+		n = memory[operand] >> 7;
+	}
+	
+	private void BMI(int operand)
+	{
+		if (n == 1)
+		{
+			tick();
+			if (operand > 127)
+			{
+				operand -= 256;
+			}
+			int page = pc & 0xFF00;
+			pc += operand;
+			if ((pc & 0xFF00) != page)
+			{
+				tick();
+			}
+		}
+	}
+	
+	private void BNE(int operand)
+	{
+		if (z == 0)
+		{
+			tick();
+			if (operand > 127)
+			{
+				operand -= 256;
+			}
+			int page = pc & 0xFF00;
+			pc += operand;
+			if ((pc & 0xFF00) != page)
+			{
+				tick();
+			}
+		}
+	}
+	
+	private void BPL(int operand)
+	{
+		if (n == 0)
+		{
+			tick();
+			if (operand > 127)
+			{
+				operand -= 256;
+			}
+			int page = pc & 0xFF00;
+			pc += operand;
+			if ((pc & 0xFF00) != page)
+			{
+				tick();
+			}
+		}
 	}
 	
 	private void BRK()
+	{
+		pc = (memory[0xFFFF] << 8) & memory[0xFFFE];
+	}
+	
+	private void BVC(int operand)
+	{
+		if (v == 0)
+		{
+			tick();
+			if (operand > 127)
+			{
+				operand -= 256;
+			}
+			int page = pc & 0xFF00;
+			pc += operand;
+			if ((pc & 0xFF00) != page)
+			{
+				tick();
+			}
+		}
+	}
+	
+	private void BVS(int operand)
+	{
+		if (v == 1)
+		{
+			tick();
+			if (operand > 127)
+			{
+				operand -= 256;
+			}
+			int page = pc & 0xFF00;
+			pc += operand;
+			if ((pc & 0xFF00) != page)
+			{
+				tick();
+			}
+		}
+	}
+	
+	private void CLC()
+	{
+		c = 0;
+	}
+	
+	private void CLD()
+	{
+		d = 0;
+	}
+	
+	private void CLI()
+	{
+		i = 0;
+	}
+	
+	private void CLV()
+	{
+		v = 0;
+	}
+	
+	private void CMP(int operand)
+	{
+		
+	}
+	
+	private void NOP()
 	{
 		
 	}
