@@ -70,7 +70,7 @@ public class CPU
 			c = 1;
 		sum &= 0xFF;
 		v = 0;
-		if (((a ^ sum) & (operand ^ result) & 0x80) != 0)
+		if (((a ^ sum) & (operand ^ sum) & 0x80) != 0)
 			v = 1;
 		a = sum;
 		n = a >> 7;
@@ -291,7 +291,21 @@ public class CPU
 	
 	private void CMP(int operand)
 	{
-		
+		z = 0;
+		if (a == operand)
+		{
+			z = 1;
+		}
+		c = 0;
+		if (a >= operand)
+		{
+			c = 1;
+		}
+		n = 0;
+		if (((a - operand) & 0xFF) >> 7 == 1)
+		{
+			n = 1;
+		}
 	}
 	
 	private void NOP()
