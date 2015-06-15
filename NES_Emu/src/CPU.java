@@ -3,11 +3,9 @@ public class CPU
 	private PPU ppu;
 	private APU apu;
 	
-	private byte a, x, y, s;
-	private byte c, z, i, d, v, n;
-	private int pc;
+	private int a, x, y, s, c, z, i, d, v, n, pc;
 	
-	private byte[] memory;
+	private int[] memory;
 	
 	boolean irq, nmi, reset;
 	
@@ -16,7 +14,7 @@ public class CPU
 		a = 0;
 		x = 0;
 		y = 0;
-		s = 0;
+		s = 0xFD;
 		
 		c = 0;
 		z = 0;
@@ -27,7 +25,7 @@ public class CPU
 		
 		pc = 0;
 		
-		memory = new byte[0x10000];
+		memory = new int[0x10000];
 	}
 	
 	public void op()
@@ -63,7 +61,7 @@ public class CPU
 		tick(1);
 	}
 	
-	private int accessMemory(boolean write, int addr, byte d)
+	private int accessMemory(boolean write, int addr, int d)
 	{
 		if (write)
 		{
@@ -81,9 +79,9 @@ public class CPU
 		return accessMemory(addr);
 	}
 	
-	private void ADC(byte operand)
+	private void ADC(int operand)
 	{
-		byte sum = (byte) (accessMemory(operand) + a + c);
+		int sum = accessMemory(operand) + a + c;
 		c = 0;
 		if (sum > 0xFF)
 			c = 1;
@@ -92,7 +90,7 @@ public class CPU
 		if (((a ^ sum) & (operand ^ sum) & 0x80) != 0)
 			v = 1;
 		a = sum;
-		n = (byte) (a >> 7);
+		n = a >> 7;
 		z = 0;
 		if (a == 0)
 			z = 1;
@@ -104,28 +102,28 @@ public class CPU
 		z = 0;
 		if (a == 0)
 			z = 1;
-		n = (byte) (a >> 7);
+		n = a >> 7;
 	}
 	
 	private void ASL()
 	{
-		c = (byte) (a >> 7);
+		c = a >> 7;
 		a <<= 1;
 		a &= 0xFF;
 		z = 0;
 		if (a == 0)
 			z = 1;
-		n = (byte) (a >> 7);
+		n = a >> 7;
 	}
 	
 	private void ASL(int operand)
 	{
-		c = (byte) (accessMemory(operand) >> 7);
-		accessMemory(true, operand, (byte) (accessMemory(operand) << 1));
+		c = accessMemory(operand) >> 7;
+		accessMemory(true, operand, accessMemory(operand) << 1);
 		z = 0;
 		if (accessMemory(operand) == 0)
 			z = 1;
-		n = (byte) (accessMemory(operand) >> 7);
+		n = accessMemory(operand) >> 7;
 	}
 	
 	private void BCC(int operand)
@@ -134,7 +132,7 @@ public class CPU
 		{
 			tick();
 			int page = pc & 0xFF00;
-			pc += operand;
+			pc += operand - 128;
 			if ((pc & 0xFF00) != page)
 			{
 				tick();
@@ -148,7 +146,7 @@ public class CPU
 		{
 			tick();
 			int page = pc & 0xFF00;
-			pc += operand;
+			pc += operand - 128;
 			if ((pc & 0xFF00) != page)
 			{
 				tick();
@@ -162,7 +160,7 @@ public class CPU
 		{
 			tick();
 			int page = pc & 0xFF00;
-			pc += operand;
+			pc += operand - 128;
 			if ((pc & 0xFF00) != page)
 			{
 				tick();
@@ -176,8 +174,8 @@ public class CPU
 		z = 0;
 		if (r == 0)
 			z = 1;
-		v = (byte) ((accessMemory(operand) & 0x80) >> 6);
-		n = (byte) (accessMemory(operand) >> 7);
+		v = (accessMemory(operand) & 0x80) >> 6;
+		n = accessMemory(operand) >> 7;
 	}
 	
 	private void BMI(int operand)
@@ -186,7 +184,7 @@ public class CPU
 		{
 			tick();
 			int page = pc & 0xFF00;
-			pc += operand;
+			pc += operand - 128;
 			if ((pc & 0xFF00) != page)
 			{
 				tick();
@@ -200,7 +198,7 @@ public class CPU
 		{
 			tick();
 			int page = pc & 0xFF00;
-			pc += operand;
+			pc += operand - 128;
 			if ((pc & 0xFF00) != page)
 			{
 				tick();
@@ -214,7 +212,7 @@ public class CPU
 		{
 			tick();
 			int page = pc & 0xFF00;
-			pc += operand;
+			pc += operand - 128;
 			if ((pc & 0xFF00) != page)
 			{
 				tick();
@@ -233,7 +231,7 @@ public class CPU
 		{
 			tick();
 			int page = pc & 0xFF00;
-			pc += operand;
+			pc += operand - 128;
 			if ((pc & 0xFF00) != page)
 			{
 				tick();
@@ -247,7 +245,7 @@ public class CPU
 		{
 			tick();
 			int page = pc & 0xFF00;
-			pc += operand;
+			pc += operand - 128;
 			if ((pc & 0xFF00) != page)
 			{
 				tick();
@@ -334,38 +332,38 @@ public class CPU
 	
 	private void DEC(int operand)
 	{
-		byte t = (byte) (accessMemory(operand) - 1);
+		int t = accessMemory(operand) - 1;
 		accessMemory(true, operand, t);
 		z = 0;
 		if (t == 0)
 		{
 			z = 1;
 		}
-		n = (byte) (t >> 7);
+		n = t >> 7;
 	}
 	
 	private void DEX(int operand)
 	{
-		byte t = (byte) (x - 1);
+		int t = x - 1;
 		accessMemory(true, operand, t);
 		z = 0;
 		if (t == 0)
 		{
 			z = 1;
 		}
-		n = (byte) (t >> 7);
+		n = t >> 7;
 	}
 	
 	private void DEY(int operand)
 	{
-		byte t = (byte) (y - 1);
+		int t = y - 1;
 		accessMemory(true, operand, t);
 		z = 0;
 		if (t == 0)
 		{
 			z = 1;
 		}
-		n = (byte) (t >> 7);
+		n = t >> 7;
 	}
 	
 	private void EOR(int operand)
@@ -376,10 +374,100 @@ public class CPU
 		{
 			z = 1;
 		}
-		n = (byte) (a >> 7);
+		n = a >> 7;
+	}
+	
+	private void INC(int operand)
+	{
+		accessMemory(true, operand, accessMemory(operand) + 1);
+	}
+	
+	private void INX()
+	{
+		x++;
+	}
+	
+	private void INY()
+	{
+		y++;
+	}
+	
+	private void JMP(int operand)
+	{
+		pc = operand;
+	}
+	
+	private void JSR(int operand)
+	{
+		accessMemory(true, s--, (pc - 1) >> 4);
+		accessMemory(true, s--, (pc - 1) & 0xFF);
+		
+		pc = operand;
+	}
+	
+	private void LDA(int operand)
+	{
+		a = operand;
+		z = 0;
+		if (a == 0)
+		{
+			z = 1;
+		}
+		n = a >> 1;
+	}
+	
+	private void LDX(int operand)
+	{
+		x = operand;
+		z = 0;
+		if (x == 0)
+		{
+			z = 0;
+		}
+		n = x >> 7;
+	}
+	
+	private void LDY(int operand)
+	{
+		y = operand;
+		z = 0;
+		if (y == 0)
+		{
+			z = 0;
+		}
+		n = y >> 7;
+	}
+
+	private void LSR()
+	{
+		c = a & 0x01;
+		a >>= 1;
+		z = 0;
+		if (a == 0)
+		{
+			z = 1;
+		}
+		n = 0;
+	}
+	
+	private void LSR(int operand)
+	{
+		c = accessMemory(operand) & 0x01;
+		accessMemory(true, operand, accessMemory(operand) >> 1);
+		z = 0;
+		if (accessMemory(operand) == 0)
+		{
+			z = 1;
+		}
+		n = 0;
 	}
 	
 	private void NOP()
+	{
+		
+	}
+	
+	private void ORA(int operand)
 	{
 		
 	}
