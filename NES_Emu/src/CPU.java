@@ -87,7 +87,7 @@ public class CPU
 			c = 1;
 		sum &= 0xFF;
 		v = 0;
-		if (((a ^ sum) & (operand ^ sum) & 0x80) != 0)
+		if (((a ^ sum) & (accessMemory(operand) ^ sum) & 0x80) != 0)
 			v = 1;
 		a = sum;
 		n = a >> 7;
@@ -98,7 +98,7 @@ public class CPU
 	
 	private void AND(int operand)
 	{
-		a &= operand;
+		a &= accessMemory(operand);
 		z = 0;
 		if (a == 0)
 			z = 1;
@@ -276,17 +276,17 @@ public class CPU
 	private void CMP(int operand)
 	{
 		z = 0;
-		if (a == operand)
+		if (a == accessMemory(operand))
 		{
 			z = 1;
 		}
 		c = 0;
-		if (a >= operand)
+		if (a >= accessMemory(operand))
 		{
 			c = 1;
 		}
 		n = 0;
-		if (((a - operand) & 0xFF) >> 7 == 1)
+		if (((a - accessMemory(operand)) & 0xFF) >> 7 == 1)
 		{
 			n = 1;
 		}
@@ -295,17 +295,17 @@ public class CPU
 	private void CPX(int operand)
 	{
 		z = 0;
-		if (x == operand)
+		if (x == accessMemory(operand))
 		{
 			z = 1;
 		}
 		c = 0;
-		if (x >= operand)
+		if (x >= accessMemory(operand))
 		{
 			c = 1;
 		}
 		n = 0;
-		if (((x - operand) & 0xFF) >> 7 == 1)
+		if (((x - accessMemory(operand)) & 0xFF) >> 7 == 1)
 		{
 			n = 1;
 		}
@@ -314,17 +314,17 @@ public class CPU
 	private void CPY(int operand)
 	{
 		z = 0;
-		if (y == operand)
+		if (y == accessMemory(operand))
 		{
 			z = 1;
 		}
 		c = 0;
-		if (y >= operand)
+		if (y >= accessMemory(operand))
 		{
 			c = 1;
 		}
 		n = 0;
-		if (((y - operand) & 0xFF) >> 7 == 1)
+		if (((y - accessMemory(operand)) & 0xFF) >> 7 == 1)
 		{
 			n = 1;
 		}
@@ -342,33 +342,33 @@ public class CPU
 		n = t >> 7;
 	}
 	
-	private void DEX(int operand)
+	private void DEX()
 	{
-		int t = x - 1;
-		accessMemory(true, operand, t);
+		x -= 1;
+		x &= 0xFF;
 		z = 0;
-		if (t == 0)
+		if (x == 0)
 		{
 			z = 1;
 		}
-		n = t >> 7;
+		n = x >> 7;
 	}
 	
-	private void DEY(int operand)
+	private void DEY()
 	{
-		int t = y - 1;
-		accessMemory(true, operand, t);
+		y -= 1;
+		y &= 0xFF;
 		z = 0;
-		if (t == 0)
+		if (y == 0)
 		{
 			z = 1;
 		}
-		n = t >> 7;
+		n = y >> 7;
 	}
 	
 	private void EOR(int operand)
 	{
-		a ^= operand;
+		a ^= accessMemory(operand);
 		z = 0;
 		if (a == 0)
 		{
@@ -394,13 +394,13 @@ public class CPU
 	
 	private void JMP(int operand)
 	{
-		pc = operand;
+		pc = (accessMemory(operand) << 8) | accessMemory(operand + 1);
 	}
 	
 	private void JSR(int operand)
 	{
-		accessMemory(true, s--, (pc - 1) >> 4);
-		accessMemory(true, s--, (pc - 1) & 0xFF);
+		accessMemory(true, s--, pc & 0xFF);
+		accessMemory(true, s--, pc >> 8);
 		
 		pc = operand;
 	}
@@ -469,7 +469,214 @@ public class CPU
 	
 	private void ORA(int operand)
 	{
-		
+		a |= accessMemory(operand);
+		z = 0;
+		if (a == 0)
+		{
+			z = 1;
+		}
+		n = a >> 7;
+	}
+	
+	private void PHA()
+	{
+		accessMemory(true, s--, a);
+	}
+	
+	private void PHP()
+	{
+		accessMemory(true, s--, (n << 7) | (v << 6) | (d << 3) | (i << 2) | (z << 1) | c);
+	}
+	
+	private void PLA()
+	{
+		a = accessMemory(++s);
+		z = 0;
+		if (a == 0)
+		{
+			z = 1;
+		}
+		n = a >> 7;
+	}
+	
+	private void PLP()
+	{
+		int r = accessMemory(++s);
+		n = (r >> 7) & 0x01;
+		v = (r >> 6) & 0x01;
+		d = (r >> 3) & 0x01;
+		i = (r >> 2) & 0x01;
+		z = (r >> 1) & 0x01;
+		c = (r) & 0x01;
+	}
+	
+	private void ROL()
+	{
+		c = a >> 7;
+		a <<= 1;
+		a &= 0xFF;
+		a |= c;
+		z = 0;
+		if (a == 0)
+		{
+			z = 1;
+		}
+		n = a >> 7;
+	}
+	
+	private void ROL(int operand)
+	{
+		c = accessMemory(operand) >> 7;
+		accessMemory(true, operand, ((accessMemory(operand) << 1) | c) & 0xFF);
+		z = 0;
+		if (accessMemory(operand) == 0)
+		{
+			z = 1;
+		}
+		n = accessMemory(operand) >> 7;
+	}
+	
+	private void ROR()
+	{
+		c = a & 0x01;
+		a >>= 1;
+		a |= (c << 7);
+		z = 0;
+		if (a == 0)
+		{
+			z = 1;
+		}
+		n = a >> 7;
+	}
+	
+	private void ROR(int operand)
+	{
+		c = accessMemory(operand) & 0x01;
+		accessMemory(true, operand, (accessMemory(operand) >> 1) | (c << 7));
+		z = 0;
+		if (accessMemory(operand) == 0)
+		{
+			z = 1;
+		}
+		n = accessMemory(operand) >> 7;
+	}
+	
+	private void RTI()
+	{
+		PLP();
+		pc = (accessMemory(s++) << 8) | accessMemory(s++);
+	}
+	
+	private void RTS()
+	{
+		pc = (accessMemory(s++) << 8) | accessMemory(s++);
+	}
+	
+	public void SBC(int operand)
+	{
+		int result = a - accessMemory(operand) - (1 - c);
+		c = 1;
+		if (result < 0)
+			c = 0;
+		result &= 0xFF;
+		v = 0;
+		if (((a ^ result) & (operand ^ result) & 0x80) != 0)
+			v = 1;
+		a = result;
+		z = 0;
+		if (a == 0)
+			z = 1;
+		n = (byte) (a >> 7);
+	}
+	
+	public void SEC()
+	{
+		c = 1;
+	}
+	
+	public void SED()
+	{
+		d = 1;
+	}
+	
+	public void SEI()
+	{
+		i = 1;
+	}
+	
+	public void STA(int operand)
+	{
+		accessMemory(true, operand, a);
+	}
+	
+	public void STX(int operand)
+	{
+		accessMemory(true, operand, x);
+	}
+	
+	public void STY(int operand)
+	{
+		accessMemory(true, operand, y);
+	}
+	
+	public void TAX()
+	{
+		x = a;
+		z = 0;
+		if (x == 0)
+		{
+			z = 1;
+		}
+		n = x >> 7;
+	}
+	
+	public void TAY()
+	{
+		y = a;
+		z = 0;
+		if (y == 0)
+		{
+			z = 1;
+		}
+		n = y >> 7;
+	}
+	
+	public void TSX()
+	{
+		x = s;
+		z = 0;
+		if (x == 0)
+		{
+			z = 1;
+		}
+		n = x >> 7;
+	}
+	
+	public void TXA()
+	{
+		a = x;
+		z = 0;
+		if (a == 0)
+		{
+			z = 1;
+		}
+		n = a >> 7;
+	}
+	
+	public void TXS()
+	{
+		s = x;
+	}
+	
+	public void TYA()
+	{
+		a = y;
+		z = 0;
+		if (a == 0)
+		{
+			z = 1;
+		}
+		n = a >> 7;
 	}
 	
 	interface Opcode
@@ -545,7 +752,7 @@ public class CPU
 		new Opcode() { public void execute(byte operand) { SEC(); } },		  // 8
 		new Opcode() { public void execute(byte operand) { AND(operand); } }, // 9
 		new Opcode() { public void execute(byte operand) { NOP(); } },		  // A
-		new Opcode() { public void execute(byte operand) { SOP(); } },		  // B
+		new Opcode() { public void execute(byte operand) { NOP(); } },		  // B
 		new Opcode() { public void execute(byte operand) { NOP(); } },		  // C
 		new Opcode() { public void execute(byte operand) { AND(operand); } }, // D
 		new Opcode() { public void execute(byte operand) { ROL(operand); } }, // E
