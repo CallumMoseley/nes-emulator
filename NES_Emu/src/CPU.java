@@ -1,3 +1,6 @@
+import java.io.File;
+import java.io.FileInputStream;
+
 public class CPU
 {
 	private PPU ppu;
@@ -8,13 +11,14 @@ public class CPU
 	private int[] memory;
 	
 	boolean irq, nmi, reset;
+	boolean printed = false;
 	
 	public CPU()
 	{
 		a = 0;
 		x = 0;
 		y = 0;
-		s = 0xFD;
+		s = 0xFF;
 		
 		c = 0;
 		z = 0;
@@ -26,10 +30,17 @@ public class CPU
 		pc = 0;
 		
 		memory = new int[0x10000];
+		
+		reset = true;
 	}
 	
 	public void op()
 	{
+		if (pc == 0x45C0 && !printed)
+		{
+			System.out.printf("%x%n", memory[0x0210]);
+			printed = true;
+		}
 		if (reset)
 		{
 			reset = false;
@@ -37,11 +48,109 @@ public class CPU
 			i = 1;
 			pc = accessMemory(0xFFFE) | (accessMemory(0xFFFF) << 8);
 		}
-		byte opcode = (byte) accessMemory(pc++);
+		int opcode = accessMemory(pc++);
 		tick(cycles[opcode]);
 		
-		byte operand = 0;
+		int operand = decodeOperand(opcode);
 		opcodes[opcode].execute(operand);
+	}
+	
+	public void load(File f)
+	{
+		try
+		{
+			FileInputStream fis = new FileInputStream(f);
+			for (int i = 0x4000; i < memory.length; i++)
+			{
+				memory[i] = fis.read();
+			}
+			fis.close();
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+		}
+	}
+	
+	private int decodeOperand(int opcode)
+	{
+		int b = (opcode >> 2) & 0x07;
+		int c = opcode & 0x03;
+		if (c == 0b01)
+		{
+			switch (b)
+			{
+			case 0b000:
+				int addr = (accessMemory(pc++) + x) & 0xFF;
+				return accessMemory(addr) | (accessMemory(addr + 1) << 8);
+			case 0b001:
+				return accessMemory(pc++);
+			case 0b010:
+				return pc++;
+			case 0b011:
+				return accessMemory(pc++) | (accessMemory(pc++) << 8);
+			case 0b100:
+				addr = accessMemory(pc++);
+				int q = accessMemory(addr);
+				int p = accessMemory(addr + 1);
+				if (q + y > 0xFF)
+				{
+					tick();
+				}
+				return (q | (p << 8)) + y;
+			case 0b101:
+				return (accessMemory(pc++) + x) & 0xFF;
+			case 0b110:
+				q = accessMemory(pc++);
+				p = accessMemory(pc++);
+				if (q + y > 0xFF)
+				{
+					tick();
+				}
+				return (q | (p << 8)) + y;
+			case 0b111:
+				q = accessMemory(pc++);
+				p = accessMemory(pc++);
+				if (q + x > 0xFF)
+				{
+					tick();
+				}
+				return (q | (p << 8)) + x;
+			}
+		}
+		else if (c == 0b10 || c == 0b00)
+		{
+			switch (b)
+			{
+			case 0b000:
+				return pc++;
+			case 0b001:
+				return accessMemory(pc++);
+			case 0b010:
+				return 0;
+			case 0b011:
+				return accessMemory(pc++) | (accessMemory(pc++) << 8);
+			case 0b101:
+				return (accessMemory(pc++) + x) & 0xFF;
+			case 0b111:
+				int q = accessMemory(pc++);
+				int p = accessMemory(pc++);
+				if (q + x > 0xFF)
+				{
+					tick();
+				}
+				return (q | (p << 8)) + x;
+			}
+		}
+		else if ((opcode & 0x1F) == 0b10000)
+		{
+			return accessMemory(pc++);
+		}
+		else if (opcode == 0x20)
+		{
+			return accessMemory(pc++) | (accessMemory(pc++) << 8);
+		}
+		return 0;
 	}
 
 	private void tick(int cycles)
@@ -50,9 +159,9 @@ public class CPU
 		{
 			for (int j = 0; j < 3; j++)
 			{
-				ppu.tick();
+//				ppu.tick();
 			}
-			apu.tick();
+//			apu.tick();
 		}
 	}
 	
@@ -61,22 +170,14 @@ public class CPU
 		tick(1);
 	}
 	
-	private int accessMemory(boolean write, int addr, int d)
+	private void accessMemory(int addr, int d)
 	{
-		if (write)
-		{
-			memory[addr] = d;
-			return 0;
-		}
-		else
-		{
-			return accessMemory(addr);
-		}
+		memory[addr] = d;
 	}
 	
 	private int accessMemory(int addr)
 	{
-		return accessMemory(addr);
+		return memory[addr];
 	}
 	
 	private void ADC(int operand)
@@ -119,7 +220,7 @@ public class CPU
 	private void ASL(int operand)
 	{
 		c = accessMemory(operand) >> 7;
-		accessMemory(true, operand, accessMemory(operand) << 1);
+		accessMemory(operand, accessMemory(operand) << 1);
 		z = 0;
 		if (accessMemory(operand) == 0)
 			z = 1;
@@ -222,7 +323,7 @@ public class CPU
 	
 	private void BRK()
 	{
-		pc = (accessMemory(0xFFFF) << 8) & accessMemory(0xFFFE);
+		pc = accessMemory(0xFFFE) & (accessMemory(0xFFFF) << 8);
 	}
 	
 	private void BVC(int operand)
@@ -333,7 +434,7 @@ public class CPU
 	private void DEC(int operand)
 	{
 		int t = accessMemory(operand) - 1;
-		accessMemory(true, operand, t);
+		accessMemory(operand, t);
 		z = 0;
 		if (t == 0)
 		{
@@ -379,7 +480,7 @@ public class CPU
 	
 	private void INC(int operand)
 	{
-		accessMemory(true, operand, accessMemory(operand) + 1);
+		accessMemory(operand, accessMemory(operand) + 1);
 	}
 	
 	private void INX()
@@ -394,20 +495,20 @@ public class CPU
 	
 	private void JMP(int operand)
 	{
-		pc = (accessMemory(operand) << 8) | accessMemory(operand + 1);
+		pc = operand;
 	}
 	
 	private void JSR(int operand)
 	{
-		accessMemory(true, s--, pc & 0xFF);
-		accessMemory(true, s--, pc >> 8);
+		accessMemory(0x100 | s--, pc & 0xFF);
+		accessMemory(0x100 | s--, pc >> 8);
 		
 		pc = operand;
 	}
 	
 	private void LDA(int operand)
 	{
-		a = operand;
+		a = accessMemory(operand);
 		z = 0;
 		if (a == 0)
 		{
@@ -418,7 +519,7 @@ public class CPU
 	
 	private void LDX(int operand)
 	{
-		x = operand;
+		x = accessMemory(operand);
 		z = 0;
 		if (x == 0)
 		{
@@ -429,7 +530,7 @@ public class CPU
 	
 	private void LDY(int operand)
 	{
-		y = operand;
+		y = accessMemory(operand);
 		z = 0;
 		if (y == 0)
 		{
@@ -453,7 +554,7 @@ public class CPU
 	private void LSR(int operand)
 	{
 		c = accessMemory(operand) & 0x01;
-		accessMemory(true, operand, accessMemory(operand) >> 1);
+		accessMemory(operand, accessMemory(operand) >> 1);
 		z = 0;
 		if (accessMemory(operand) == 0)
 		{
@@ -480,17 +581,17 @@ public class CPU
 	
 	private void PHA()
 	{
-		accessMemory(true, s--, a);
+		accessMemory(0x100 | s--, a);
 	}
 	
 	private void PHP()
 	{
-		accessMemory(true, s--, (n << 7) | (v << 6) | (d << 3) | (i << 2) | (z << 1) | c);
+		accessMemory(0x100 | s--, (n << 7) | (v << 6) | (d << 3) | (i << 2) | (z << 1) | c);
 	}
 	
 	private void PLA()
 	{
-		a = accessMemory(++s);
+		a = accessMemory(0x100 | ++s);
 		z = 0;
 		if (a == 0)
 		{
@@ -501,7 +602,7 @@ public class CPU
 	
 	private void PLP()
 	{
-		int r = accessMemory(++s);
+		int r = accessMemory(0x100 | ++s);
 		n = (r >> 7) & 0x01;
 		v = (r >> 6) & 0x01;
 		d = (r >> 3) & 0x01;
@@ -527,7 +628,7 @@ public class CPU
 	private void ROL(int operand)
 	{
 		c = accessMemory(operand) >> 7;
-		accessMemory(true, operand, ((accessMemory(operand) << 1) | c) & 0xFF);
+		accessMemory(operand, ((accessMemory(operand) << 1) | c) & 0xFF);
 		z = 0;
 		if (accessMemory(operand) == 0)
 		{
@@ -552,7 +653,7 @@ public class CPU
 	private void ROR(int operand)
 	{
 		c = accessMemory(operand) & 0x01;
-		accessMemory(true, operand, (accessMemory(operand) >> 1) | (c << 7));
+		accessMemory(operand, (accessMemory(operand) >> 1) | (c << 7));
 		z = 0;
 		if (accessMemory(operand) == 0)
 		{
@@ -564,62 +665,66 @@ public class CPU
 	private void RTI()
 	{
 		PLP();
-		pc = (accessMemory(s++) << 8) | accessMemory(s++);
+		pc = accessMemory(s++) | (accessMemory(s++) << 8);
 	}
 	
 	private void RTS()
 	{
-		pc = (accessMemory(s++) << 8) | accessMemory(s++);
+		pc = accessMemory(s++) | (accessMemory(s++) << 8);
 	}
 	
-	public void SBC(int operand)
+	private void SBC(int operand)
 	{
-		int result = a - accessMemory(operand) - (1 - c);
+		int result = a - accessMemory(operand) + c - 1;
 		c = 1;
 		if (result < 0)
 			c = 0;
 		result &= 0xFF;
 		v = 0;
 		if (((a ^ result) & (operand ^ result) & 0x80) != 0)
+		{
 			v = 1;
+		}
 		a = result;
 		z = 0;
 		if (a == 0)
+		{
 			z = 1;
-		n = (byte) (a >> 7);
+		}
+		n = a >> 7;
 	}
 	
-	public void SEC()
+	private void SEC()
 	{
 		c = 1;
 	}
 	
-	public void SED()
+	private void SED()
 	{
 		d = 1;
 	}
 	
-	public void SEI()
+	private void SEI()
 	{
 		i = 1;
 	}
 	
-	public void STA(int operand)
+	private void STA(int operand)
 	{
-		accessMemory(true, operand, a);
+		accessMemory(operand, a);
 	}
 	
-	public void STX(int operand)
+	private void STX(int operand)
 	{
-		accessMemory(true, operand, x);
+		accessMemory(operand, x);
 	}
 	
-	public void STY(int operand)
+	private void STY(int operand)
 	{
-		accessMemory(true, operand, y);
+		accessMemory(operand, y);
 	}
 	
-	public void TAX()
+	private void TAX()
 	{
 		x = a;
 		z = 0;
@@ -630,7 +735,7 @@ public class CPU
 		n = x >> 7;
 	}
 	
-	public void TAY()
+	private void TAY()
 	{
 		y = a;
 		z = 0;
@@ -641,7 +746,7 @@ public class CPU
 		n = y >> 7;
 	}
 	
-	public void TSX()
+	private void TSX()
 	{
 		x = s;
 		z = 0;
@@ -652,7 +757,7 @@ public class CPU
 		n = x >> 7;
 	}
 	
-	public void TXA()
+	private void TXA()
 	{
 		a = x;
 		z = 0;
@@ -663,12 +768,12 @@ public class CPU
 		n = a >> 7;
 	}
 	
-	public void TXS()
+	private void TXS()
 	{
 		s = x;
 	}
 	
-	public void TYA()
+	private void TYA()
 	{
 		a = y;
 		z = 0;
@@ -681,298 +786,298 @@ public class CPU
 	
 	interface Opcode
 	{
-		public void execute(byte operand);
+		public void execute(int operand);
 	}
 	
 	private Opcode[] opcodes = new Opcode[]
 	{
 		// 0
-		new Opcode() { public void execute(byte operand) { BRK(); } },		  // 0
-		new Opcode() { public void execute(byte operand) { ORA(operand); } }, // 1
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 2
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 3
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 4
-		new Opcode() { public void execute(byte operand) { ORA(operand); } }, // 5
-		new Opcode() { public void execute(byte operand) { ASL(operand); } }, // 6
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 7
-		new Opcode() { public void execute(byte operand) { PHP(); } },		  // 8
-		new Opcode() { public void execute(byte operand) { ORA(operand); } }, // 9
-		new Opcode() { public void execute(byte operand) { ASL(); } },		  // A
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // B
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // C
-		new Opcode() { public void execute(byte operand) { ORA(operand); } }, // D
-		new Opcode() { public void execute(byte operand) { ASL(operand); } }, // E
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // F
+		new Opcode() { public void execute(int operand) { BRK(); } },		  // 0
+		new Opcode() { public void execute(int operand) { ORA(operand); } }, // 1
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 2
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 3
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 4
+		new Opcode() { public void execute(int operand) { ORA(operand); } }, // 5
+		new Opcode() { public void execute(int operand) { ASL(operand); } }, // 6
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 7
+		new Opcode() { public void execute(int operand) { PHP(); } },		  // 8
+		new Opcode() { public void execute(int operand) { ORA(operand); } }, // 9
+		new Opcode() { public void execute(int operand) { ASL(); } },		  // A
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // B
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // C
+		new Opcode() { public void execute(int operand) { ORA(operand); } }, // D
+		new Opcode() { public void execute(int operand) { ASL(operand); } }, // E
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // F
 		
 		// 1
-		new Opcode() { public void execute(byte operand) { BPL(operand); } }, // 0
-		new Opcode() { public void execute(byte operand) { ORA(operand); } }, // 1
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 2
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 3
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 4
-		new Opcode() { public void execute(byte operand) { ORA(operand); } }, // 5
-		new Opcode() { public void execute(byte operand) { ASL(operand); } }, // 6
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 7
-		new Opcode() { public void execute(byte operand) { CLC(); } },		  // 8
-		new Opcode() { public void execute(byte operand) { ORA(operand); } }, // 9
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // A
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // B
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // C
-		new Opcode() { public void execute(byte operand) { ORA(operand); } }, // D
-		new Opcode() { public void execute(byte operand) { ASL(operand); } }, // E
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // F
+		new Opcode() { public void execute(int operand) { BPL(operand); } }, // 0
+		new Opcode() { public void execute(int operand) { ORA(operand); } }, // 1
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 2
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 3
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 4
+		new Opcode() { public void execute(int operand) { ORA(operand); } }, // 5
+		new Opcode() { public void execute(int operand) { ASL(operand); } }, // 6
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 7
+		new Opcode() { public void execute(int operand) { CLC(); } },		  // 8
+		new Opcode() { public void execute(int operand) { ORA(operand); } }, // 9
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // A
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // B
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // C
+		new Opcode() { public void execute(int operand) { ORA(operand); } }, // D
+		new Opcode() { public void execute(int operand) { ASL(operand); } }, // E
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // F
 		
 		// 2
-		new Opcode() { public void execute(byte operand) { JSR(operand); } }, // 0
-		new Opcode() { public void execute(byte operand) { AND(operand); } }, // 1
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 2
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 3
-		new Opcode() { public void execute(byte operand) { BIT(operand); } }, // 4
-		new Opcode() { public void execute(byte operand) { AND(operand); } }, // 5
-		new Opcode() { public void execute(byte operand) { ROL(operand); } }, // 6
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 7
-		new Opcode() { public void execute(byte operand) { PLP(); } },		  // 8
-		new Opcode() { public void execute(byte operand) { AND(operand); } }, // 9
-		new Opcode() { public void execute(byte operand) { ROL(); } },		  // A
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // B
-		new Opcode() { public void execute(byte operand) { BIT(operand); } }, // C
-		new Opcode() { public void execute(byte operand) { AND(operand); } }, // D
-		new Opcode() { public void execute(byte operand) { ROL(operand); } }, // E
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // F
+		new Opcode() { public void execute(int operand) { JSR(operand); } }, // 0
+		new Opcode() { public void execute(int operand) { AND(operand); } }, // 1
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 2
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 3
+		new Opcode() { public void execute(int operand) { BIT(operand); } }, // 4
+		new Opcode() { public void execute(int operand) { AND(operand); } }, // 5
+		new Opcode() { public void execute(int operand) { ROL(operand); } }, // 6
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 7
+		new Opcode() { public void execute(int operand) { PLP(); } },		  // 8
+		new Opcode() { public void execute(int operand) { AND(operand); } }, // 9
+		new Opcode() { public void execute(int operand) { ROL(); } },		  // A
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // B
+		new Opcode() { public void execute(int operand) { BIT(operand); } }, // C
+		new Opcode() { public void execute(int operand) { AND(operand); } }, // D
+		new Opcode() { public void execute(int operand) { ROL(operand); } }, // E
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // F
 		
 		// 3
-		new Opcode() { public void execute(byte operand) { BMI(operand); } }, // 0
-		new Opcode() { public void execute(byte operand) { AND(operand); } }, // 1
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 2
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 3
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 4
-		new Opcode() { public void execute(byte operand) { AND(operand); } }, // 5
-		new Opcode() { public void execute(byte operand) { ROL(operand); } }, // 6
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 7
-		new Opcode() { public void execute(byte operand) { SEC(); } },		  // 8
-		new Opcode() { public void execute(byte operand) { AND(operand); } }, // 9
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // A
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // B
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // C
-		new Opcode() { public void execute(byte operand) { AND(operand); } }, // D
-		new Opcode() { public void execute(byte operand) { ROL(operand); } }, // E
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // F
+		new Opcode() { public void execute(int operand) { BMI(operand); } }, // 0
+		new Opcode() { public void execute(int operand) { AND(operand); } }, // 1
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 2
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 3
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 4
+		new Opcode() { public void execute(int operand) { AND(operand); } }, // 5
+		new Opcode() { public void execute(int operand) { ROL(operand); } }, // 6
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 7
+		new Opcode() { public void execute(int operand) { SEC(); } },		  // 8
+		new Opcode() { public void execute(int operand) { AND(operand); } }, // 9
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // A
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // B
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // C
+		new Opcode() { public void execute(int operand) { AND(operand); } }, // D
+		new Opcode() { public void execute(int operand) { ROL(operand); } }, // E
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // F
 		
 		// 4
-		new Opcode() { public void execute(byte operand) { RTI(); } },		  // 0
-		new Opcode() { public void execute(byte operand) { EOR(operand); } }, // 1
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 2
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 3
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 4
-		new Opcode() { public void execute(byte operand) { EOR(operand); } }, // 5
-		new Opcode() { public void execute(byte operand) { LSR(operand); } }, // 6
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 7
-		new Opcode() { public void execute(byte operand) { PHA(); } },		  // 8
-		new Opcode() { public void execute(byte operand) { EOR(operand); } }, // 9
-		new Opcode() { public void execute(byte operand) { LSR(); } },		  // A
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // B
-		new Opcode() { public void execute(byte operand) { JMP(operand); } }, // C
-		new Opcode() { public void execute(byte operand) { ADC(operand); } }, // D
-		new Opcode() { public void execute(byte operand) { ROR(operand); } }, // E
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // F
+		new Opcode() { public void execute(int operand) { RTI(); } },		  // 0
+		new Opcode() { public void execute(int operand) { EOR(operand); } }, // 1
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 2
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 3
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 4
+		new Opcode() { public void execute(int operand) { EOR(operand); } }, // 5
+		new Opcode() { public void execute(int operand) { LSR(operand); } }, // 6
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 7
+		new Opcode() { public void execute(int operand) { PHA(); } },		  // 8
+		new Opcode() { public void execute(int operand) { EOR(operand); } }, // 9
+		new Opcode() { public void execute(int operand) { LSR(); } },		  // A
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // B
+		new Opcode() { public void execute(int operand) { JMP(operand); } }, // C
+		new Opcode() { public void execute(int operand) { ADC(operand); } }, // D
+		new Opcode() { public void execute(int operand) { ROR(operand); } }, // E
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // F
 		
 		// 5
-		new Opcode() { public void execute(byte operand) { BVC(operand); } }, // 0
-		new Opcode() { public void execute(byte operand) { EOR(operand); } }, // 1
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 2
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 3
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 4
-		new Opcode() { public void execute(byte operand) { EOR(operand); } }, // 5
-		new Opcode() { public void execute(byte operand) { LSR(operand); } }, // 6
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 7
-		new Opcode() { public void execute(byte operand) { CLI(); } },		  // 8
-		new Opcode() { public void execute(byte operand) { EOR(operand); } }, // 9
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // A
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // B
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // C
-		new Opcode() { public void execute(byte operand) { EOR(operand); } }, // D
-		new Opcode() { public void execute(byte operand) { LSR(operand); } }, // E
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // F
+		new Opcode() { public void execute(int operand) { BVC(operand); } }, // 0
+		new Opcode() { public void execute(int operand) { EOR(operand); } }, // 1
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 2
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 3
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 4
+		new Opcode() { public void execute(int operand) { EOR(operand); } }, // 5
+		new Opcode() { public void execute(int operand) { LSR(operand); } }, // 6
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 7
+		new Opcode() { public void execute(int operand) { CLI(); } },		  // 8
+		new Opcode() { public void execute(int operand) { EOR(operand); } }, // 9
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // A
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // B
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // C
+		new Opcode() { public void execute(int operand) { EOR(operand); } }, // D
+		new Opcode() { public void execute(int operand) { LSR(operand); } }, // E
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // F
 		
 		// 6
-		new Opcode() { public void execute(byte operand) { RTS(); } },		  // 0
-		new Opcode() { public void execute(byte operand) { ADC(operand); } }, // 1
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 2
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 3
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 4
-		new Opcode() { public void execute(byte operand) { ADC(operand); } }, // 5
-		new Opcode() { public void execute(byte operand) { ROR(operand); } }, // 6
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 7
-		new Opcode() { public void execute(byte operand) { PLA(); } },		  // 8
-		new Opcode() { public void execute(byte operand) { ADC(operand); } }, // 9
-		new Opcode() { public void execute(byte operand) { ROR(); } },		  // A
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // B
-		new Opcode() { public void execute(byte operand) { JMP(operand); } }, // C
-		new Opcode() { public void execute(byte operand) { ADC(operand); } }, // D
-		new Opcode() { public void execute(byte operand) { ROR(operand); } }, // E
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // F
+		new Opcode() { public void execute(int operand) { RTS(); } },		  // 0
+		new Opcode() { public void execute(int operand) { ADC(operand); } }, // 1
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 2
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 3
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 4
+		new Opcode() { public void execute(int operand) { ADC(operand); } }, // 5
+		new Opcode() { public void execute(int operand) { ROR(operand); } }, // 6
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 7
+		new Opcode() { public void execute(int operand) { PLA(); } },		  // 8
+		new Opcode() { public void execute(int operand) { ADC(operand); } }, // 9
+		new Opcode() { public void execute(int operand) { ROR(); } },		  // A
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // B
+		new Opcode() { public void execute(int operand) { JMP(operand); } }, // C
+		new Opcode() { public void execute(int operand) { ADC(operand); } }, // D
+		new Opcode() { public void execute(int operand) { ROR(operand); } }, // E
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // F
 		
 		// 7
-		new Opcode() { public void execute(byte operand) { BVS(operand); } }, // 0
-		new Opcode() { public void execute(byte operand) { ADC(operand); } }, // 1
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 2
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 3
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 4
-		new Opcode() { public void execute(byte operand) { ADC(operand); } }, // 5
-		new Opcode() { public void execute(byte operand) { ROR(operand); } }, // 6
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 7
-		new Opcode() { public void execute(byte operand) { SEI(); } },		  // 8
-		new Opcode() { public void execute(byte operand) { ADC(operand); } }, // 9
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // A
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // B
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // C
-		new Opcode() { public void execute(byte operand) { ADC(operand); } }, // D
-		new Opcode() { public void execute(byte operand) { ROR(operand); } }, // E
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // F
+		new Opcode() { public void execute(int operand) { BVS(operand); } }, // 0
+		new Opcode() { public void execute(int operand) { ADC(operand); } }, // 1
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 2
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 3
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 4
+		new Opcode() { public void execute(int operand) { ADC(operand); } }, // 5
+		new Opcode() { public void execute(int operand) { ROR(operand); } }, // 6
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 7
+		new Opcode() { public void execute(int operand) { SEI(); } },		  // 8
+		new Opcode() { public void execute(int operand) { ADC(operand); } }, // 9
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // A
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // B
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // C
+		new Opcode() { public void execute(int operand) { ADC(operand); } }, // D
+		new Opcode() { public void execute(int operand) { ROR(operand); } }, // E
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // F
 		
 		// 8
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 0
-		new Opcode() { public void execute(byte operand) { STA(operand); } }, // 1
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 2
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 3
-		new Opcode() { public void execute(byte operand) { STY(operand); } }, // 4
-		new Opcode() { public void execute(byte operand) { STA(operand); } }, // 5
-		new Opcode() { public void execute(byte operand) { STX(operand); } }, // 6
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 7
-		new Opcode() { public void execute(byte operand) { DEY(); } },		  // 8
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 9
-		new Opcode() { public void execute(byte operand) { TXA(); } },		  // A
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // B
-		new Opcode() { public void execute(byte operand) { STY(operand); } }, // C
-		new Opcode() { public void execute(byte operand) { STA(operand); } }, // D
-		new Opcode() { public void execute(byte operand) { STX(operand); } }, // E
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // F
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 0
+		new Opcode() { public void execute(int operand) { STA(operand); } }, // 1
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 2
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 3
+		new Opcode() { public void execute(int operand) { STY(operand); } }, // 4
+		new Opcode() { public void execute(int operand) { STA(operand); } }, // 5
+		new Opcode() { public void execute(int operand) { STX(operand); } }, // 6
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 7
+		new Opcode() { public void execute(int operand) { DEY(); } },		  // 8
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 9
+		new Opcode() { public void execute(int operand) { TXA(); } },		  // A
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // B
+		new Opcode() { public void execute(int operand) { STY(operand); } }, // C
+		new Opcode() { public void execute(int operand) { STA(operand); } }, // D
+		new Opcode() { public void execute(int operand) { STX(operand); } }, // E
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // F
 
 		// 9
-		new Opcode() { public void execute(byte operand) { BCC(operand); } }, // 0
-		new Opcode() { public void execute(byte operand) { STA(operand); } }, // 1
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 2
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 3
-		new Opcode() { public void execute(byte operand) { STY(operand); } }, // 4
-		new Opcode() { public void execute(byte operand) { STA(operand); } }, // 5
-		new Opcode() { public void execute(byte operand) { STX(operand); } }, // 6
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 7
-		new Opcode() { public void execute(byte operand) { TYA(); } },		  // 8
-		new Opcode() { public void execute(byte operand) { STA(operand); } }, // 9
-		new Opcode() { public void execute(byte operand) { TXS(); } },		  // A
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // B
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // C
-		new Opcode() { public void execute(byte operand) { STA(operand); } }, // D
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // E
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // F
+		new Opcode() { public void execute(int operand) { BCC(operand); } }, // 0
+		new Opcode() { public void execute(int operand) { STA(operand); } }, // 1
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 2
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 3
+		new Opcode() { public void execute(int operand) { STY(operand); } }, // 4
+		new Opcode() { public void execute(int operand) { STA(operand); } }, // 5
+		new Opcode() { public void execute(int operand) { STX(operand); } }, // 6
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 7
+		new Opcode() { public void execute(int operand) { TYA(); } },		  // 8
+		new Opcode() { public void execute(int operand) { STA(operand); } }, // 9
+		new Opcode() { public void execute(int operand) { TXS(); } },		  // A
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // B
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // C
+		new Opcode() { public void execute(int operand) { STA(operand); } }, // D
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // E
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // F
 		
 		// A
-		new Opcode() { public void execute(byte operand) { LDY(operand); } }, // 0
-		new Opcode() { public void execute(byte operand) { LDA(operand); } }, // 1
-		new Opcode() { public void execute(byte operand) { LDX(operand); } }, // 2
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 3
-		new Opcode() { public void execute(byte operand) { LDY(operand); } }, // 4
-		new Opcode() { public void execute(byte operand) { LDA(operand); } }, // 5
-		new Opcode() { public void execute(byte operand) { LDX(operand); } }, // 6
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 7
-		new Opcode() { public void execute(byte operand) { TAY(); } },		  // 8
-		new Opcode() { public void execute(byte operand) { LDA(operand); } }, // 9
-		new Opcode() { public void execute(byte operand) { TAX(); } },		  // A
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // B
-		new Opcode() { public void execute(byte operand) { LDY(operand); } }, // C
-		new Opcode() { public void execute(byte operand) { LDA(operand); } }, // D
-		new Opcode() { public void execute(byte operand) { LDX(operand); } }, // E
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // F
+		new Opcode() { public void execute(int operand) { LDY(operand); } }, // 0
+		new Opcode() { public void execute(int operand) { LDA(operand); } }, // 1
+		new Opcode() { public void execute(int operand) { LDX(operand); } }, // 2
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 3
+		new Opcode() { public void execute(int operand) { LDY(operand); } }, // 4
+		new Opcode() { public void execute(int operand) { LDA(operand); } }, // 5
+		new Opcode() { public void execute(int operand) { LDX(operand); } }, // 6
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 7
+		new Opcode() { public void execute(int operand) { TAY(); } },		  // 8
+		new Opcode() { public void execute(int operand) { LDA(operand); } }, // 9
+		new Opcode() { public void execute(int operand) { TAX(); } },		  // A
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // B
+		new Opcode() { public void execute(int operand) { LDY(operand); } }, // C
+		new Opcode() { public void execute(int operand) { LDA(operand); } }, // D
+		new Opcode() { public void execute(int operand) { LDX(operand); } }, // E
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // F
 		
 		// B
-		new Opcode() { public void execute(byte operand) { BCS(operand); } }, // 0
-		new Opcode() { public void execute(byte operand) { LDA(operand); } }, // 1
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 2
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 3
-		new Opcode() { public void execute(byte operand) { LDY(operand); } }, // 4
-		new Opcode() { public void execute(byte operand) { LDA(operand); } }, // 5
-		new Opcode() { public void execute(byte operand) { LDX(operand); } }, // 6
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 7
-		new Opcode() { public void execute(byte operand) { CLV(); } },		  // 8
-		new Opcode() { public void execute(byte operand) { LDA(operand); } }, // 9
-		new Opcode() { public void execute(byte operand) { TSX(); } },		  // A
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // B
-		new Opcode() { public void execute(byte operand) { LDY(operand); } }, // C
-		new Opcode() { public void execute(byte operand) { LDA(operand); } }, // D
-		new Opcode() { public void execute(byte operand) { LDX(operand); } }, // E
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // F
+		new Opcode() { public void execute(int operand) { BCS(operand); } }, // 0
+		new Opcode() { public void execute(int operand) { LDA(operand); } }, // 1
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 2
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 3
+		new Opcode() { public void execute(int operand) { LDY(operand); } }, // 4
+		new Opcode() { public void execute(int operand) { LDA(operand); } }, // 5
+		new Opcode() { public void execute(int operand) { LDX(operand); } }, // 6
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 7
+		new Opcode() { public void execute(int operand) { CLV(); } },		  // 8
+		new Opcode() { public void execute(int operand) { LDA(operand); } }, // 9
+		new Opcode() { public void execute(int operand) { TSX(); } },		  // A
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // B
+		new Opcode() { public void execute(int operand) { LDY(operand); } }, // C
+		new Opcode() { public void execute(int operand) { LDA(operand); } }, // D
+		new Opcode() { public void execute(int operand) { LDX(operand); } }, // E
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // F
 		
 		// C
-		new Opcode() { public void execute(byte operand) { CPY(operand); } }, // 0
-		new Opcode() { public void execute(byte operand) { CMP(operand); } }, // 1
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 2
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 3
-		new Opcode() { public void execute(byte operand) { CPY(operand); } }, // 4
-		new Opcode() { public void execute(byte operand) { CMP(operand); } }, // 5
-		new Opcode() { public void execute(byte operand) { DEC(operand); } }, // 6
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 7
-		new Opcode() { public void execute(byte operand) { INY(); } },		  // 8
-		new Opcode() { public void execute(byte operand) { CMP(operand); } }, // 9
-		new Opcode() { public void execute(byte operand) { DEX(); } },		  // A
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // B
-		new Opcode() { public void execute(byte operand) { CPY(operand); } }, // C
-		new Opcode() { public void execute(byte operand) { CMP(operand); } }, // D
-		new Opcode() { public void execute(byte operand) { DEC(operand); } }, // E
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // F
+		new Opcode() { public void execute(int operand) { CPY(operand); } }, // 0
+		new Opcode() { public void execute(int operand) { CMP(operand); } }, // 1
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 2
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 3
+		new Opcode() { public void execute(int operand) { CPY(operand); } }, // 4
+		new Opcode() { public void execute(int operand) { CMP(operand); } }, // 5
+		new Opcode() { public void execute(int operand) { DEC(operand); } }, // 6
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 7
+		new Opcode() { public void execute(int operand) { INY(); } },		  // 8
+		new Opcode() { public void execute(int operand) { CMP(operand); } }, // 9
+		new Opcode() { public void execute(int operand) { DEX(); } },		  // A
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // B
+		new Opcode() { public void execute(int operand) { CPY(operand); } }, // C
+		new Opcode() { public void execute(int operand) { CMP(operand); } }, // D
+		new Opcode() { public void execute(int operand) { DEC(operand); } }, // E
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // F
 		
 		// D
-		new Opcode() { public void execute(byte operand) { BNE(operand); } }, // 0
-		new Opcode() { public void execute(byte operand) { CMP(operand); } }, // 1
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 2
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 3
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 4
-		new Opcode() { public void execute(byte operand) { CMP(operand); } }, // 5
-		new Opcode() { public void execute(byte operand) { DEC(operand); } }, // 6
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 7
-		new Opcode() { public void execute(byte operand) { CLD(); } },		  // 8
-		new Opcode() { public void execute(byte operand) { CMP(operand); } }, // 9
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // A
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // B
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // C
-		new Opcode() { public void execute(byte operand) { CMP(operand); } }, // D
-		new Opcode() { public void execute(byte operand) { DEC(operand); } }, // E
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // F
+		new Opcode() { public void execute(int operand) { BNE(operand); } }, // 0
+		new Opcode() { public void execute(int operand) { CMP(operand); } }, // 1
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 2
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 3
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 4
+		new Opcode() { public void execute(int operand) { CMP(operand); } }, // 5
+		new Opcode() { public void execute(int operand) { DEC(operand); } }, // 6
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 7
+		new Opcode() { public void execute(int operand) { CLD(); } },		  // 8
+		new Opcode() { public void execute(int operand) { CMP(operand); } }, // 9
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // A
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // B
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // C
+		new Opcode() { public void execute(int operand) { CMP(operand); } }, // D
+		new Opcode() { public void execute(int operand) { DEC(operand); } }, // E
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // F
 		
 		// E
-		new Opcode() { public void execute(byte operand) { CPX(operand); } }, // 0
-		new Opcode() { public void execute(byte operand) { SBC(operand); } }, // 1
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 2
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 3
-		new Opcode() { public void execute(byte operand) { CPX(operand); } }, // 4
-		new Opcode() { public void execute(byte operand) { SBC(operand); } }, // 5
-		new Opcode() { public void execute(byte operand) { INC(operand); } }, // 6
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 7
-		new Opcode() { public void execute(byte operand) { INX(); } },		  // 8
-		new Opcode() { public void execute(byte operand) { SBC(operand); } }, // 9
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // A
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // B
-		new Opcode() { public void execute(byte operand) { CPX(operand); } }, // C
-		new Opcode() { public void execute(byte operand) { SBC(operand); } }, // D
-		new Opcode() { public void execute(byte operand) { INC(operand); } }, // E
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // F
+		new Opcode() { public void execute(int operand) { CPX(operand); } }, // 0
+		new Opcode() { public void execute(int operand) { SBC(operand); } }, // 1
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 2
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 3
+		new Opcode() { public void execute(int operand) { CPX(operand); } }, // 4
+		new Opcode() { public void execute(int operand) { SBC(operand); } }, // 5
+		new Opcode() { public void execute(int operand) { INC(operand); } }, // 6
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 7
+		new Opcode() { public void execute(int operand) { INX(); } },		  // 8
+		new Opcode() { public void execute(int operand) { SBC(operand); } }, // 9
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // A
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // B
+		new Opcode() { public void execute(int operand) { CPX(operand); } }, // C
+		new Opcode() { public void execute(int operand) { SBC(operand); } }, // D
+		new Opcode() { public void execute(int operand) { INC(operand); } }, // E
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // F
 		
 		// F
-		new Opcode() { public void execute(byte operand) { BEQ(operand); } }, // 0
-		new Opcode() { public void execute(byte operand) { SBC(operand); } }, // 1
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 2
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 3
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 4
-		new Opcode() { public void execute(byte operand) { SBC(operand); } }, // 5
-		new Opcode() { public void execute(byte operand) { INC(operand); } }, // 6
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // 7
-		new Opcode() { public void execute(byte operand) { SED(); } },		  // 8
-		new Opcode() { public void execute(byte operand) { SBC(operand); } }, // 9
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // A
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // B
-		new Opcode() { public void execute(byte operand) { NOP(); } },		  // C
-		new Opcode() { public void execute(byte operand) { SBC(operand); } }, // D
-		new Opcode() { public void execute(byte operand) { INC(operand); } }, // E
-		new Opcode() { public void execute(byte operand) { NOP(); } }		  // F
+		new Opcode() { public void execute(int operand) { BEQ(operand); } }, // 0
+		new Opcode() { public void execute(int operand) { SBC(operand); } }, // 1
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 2
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 3
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 4
+		new Opcode() { public void execute(int operand) { SBC(operand); } }, // 5
+		new Opcode() { public void execute(int operand) { INC(operand); } }, // 6
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // 7
+		new Opcode() { public void execute(int operand) { SED(); } },		  // 8
+		new Opcode() { public void execute(int operand) { SBC(operand); } }, // 9
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // A
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // B
+		new Opcode() { public void execute(int operand) { NOP(); } },		  // C
+		new Opcode() { public void execute(int operand) { SBC(operand); } }, // D
+		new Opcode() { public void execute(int operand) { INC(operand); } }, // E
+		new Opcode() { public void execute(int operand) { NOP(); } }		  // F
 	};
 
 	// Debugging stuff
