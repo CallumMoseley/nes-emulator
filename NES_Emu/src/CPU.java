@@ -53,6 +53,7 @@ public class CPU
 		
 		int operand = decodeOperand(opcode);
 		opcodes[opcode].execute(operand);
+//		System.out.println(opcodeNames[opcode]);
 	}
 	
 	public void load(File f)
@@ -74,9 +75,15 @@ public class CPU
 	
 	private int decodeOperand(int opcode)
 	{
+		int a = (opcode >> 5) & 0x07;
 		int b = (opcode >> 2) & 0x07;
 		int c = opcode & 0x03;
-		if (c == 0b01)
+
+		if ((opcode & 0x1F) == 0b10000)
+		{
+			return accessMemory(pc++);
+		}
+		else if (c == 0b01)
 		{
 			switch (b)
 			{
@@ -120,6 +127,20 @@ public class CPU
 		}
 		else if (c == 0b10 || c == 0b00)
 		{
+			if (c == 0b10 && (a == 0b100 || a == 0b101) && b == 0b101)
+			{
+				return (accessMemory(pc++) + y) & 0xFF;
+			}
+			if (c == 0b10 && a == 0b101 && b == 0b111)
+			{
+				int q = accessMemory(pc++);
+				int p = accessMemory(pc++);
+				if (q + y > 0xFF)
+				{
+					tick();
+				}
+				return (q | (p << 8)) + y;
+			}
 			switch (b)
 			{
 			case 0b000:
@@ -141,10 +162,6 @@ public class CPU
 				}
 				return (q | (p << 8)) + x;
 			}
-		}
-		else if ((opcode & 0x1F) == 0b10000)
-		{
-			return accessMemory(pc++);
 		}
 		else if (opcode == 0x20)
 		{
@@ -233,7 +250,7 @@ public class CPU
 		{
 			tick();
 			int page = pc & 0xFF00;
-			pc += operand - 128;
+			pc += operand - (operand > 127 ? 256 : 0);
 			if ((pc & 0xFF00) != page)
 			{
 				tick();
@@ -247,7 +264,7 @@ public class CPU
 		{
 			tick();
 			int page = pc & 0xFF00;
-			pc += operand - 128;
+			pc += operand - (operand > 127 ? 256 : 0);
 			if ((pc & 0xFF00) != page)
 			{
 				tick();
@@ -261,7 +278,7 @@ public class CPU
 		{
 			tick();
 			int page = pc & 0xFF00;
-			pc += operand - 128;
+			pc += operand - (operand > 127 ? 256 : 0);
 			if ((pc & 0xFF00) != page)
 			{
 				tick();
@@ -285,7 +302,7 @@ public class CPU
 		{
 			tick();
 			int page = pc & 0xFF00;
-			pc += operand - 128;
+			pc += operand - (operand > 127 ? 256 : 0);
 			if ((pc & 0xFF00) != page)
 			{
 				tick();
@@ -299,7 +316,7 @@ public class CPU
 		{
 			tick();
 			int page = pc & 0xFF00;
-			pc += operand - 128;
+			pc += operand - (operand > 127 ? 256 : 0);
 			if ((pc & 0xFF00) != page)
 			{
 				tick();
@@ -313,7 +330,7 @@ public class CPU
 		{
 			tick();
 			int page = pc & 0xFF00;
-			pc += operand - 128;
+			pc += operand - (operand > 127 ? 256 : 0);
 			if ((pc & 0xFF00) != page)
 			{
 				tick();
@@ -332,7 +349,7 @@ public class CPU
 		{
 			tick();
 			int page = pc & 0xFF00;
-			pc += operand - 128;
+			pc += operand - (operand > 127 ? 256 : 0);
 			if ((pc & 0xFF00) != page)
 			{
 				tick();
@@ -346,7 +363,7 @@ public class CPU
 		{
 			tick();
 			int page = pc & 0xFF00;
-			pc += operand - 128;
+			pc += operand - (operand > 127 ? 256 : 0);
 			if ((pc & 0xFF00) != page)
 			{
 				tick();
