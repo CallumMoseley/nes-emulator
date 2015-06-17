@@ -240,7 +240,7 @@ test01:
 ; expected result: $71 = 0xFF
 test02:
 	LDA #$FF
-	LDX #$00
+	LDX #$00 ; 41cf
 
 	STA $90
 	INC $90
@@ -374,7 +374,7 @@ test03:
 
 ; expected result: $40 = 0x42
 test04:
-	LDA #$E8 ;originally:#$7C
+	LDA #$E8 ;originally:#$7C 42c6
 	STA $20
 	LDA #$42 ;originally:#$02
 	STA $21

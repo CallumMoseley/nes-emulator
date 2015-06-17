@@ -41,6 +41,10 @@ public class CPU
 			System.out.printf("%x%n", memory[0x0210]);
 			printed = true;
 		}
+		if (pc > 0x42c6)
+		{
+			pc = pc + 1 - 1;
+		}
 		if (reset)
 		{
 			reset = false;
@@ -79,7 +83,20 @@ public class CPU
 		int b = (opcode >> 2) & 0x07;
 		int c = opcode & 0x03;
 
-		if ((opcode & 0x1F) == 0b10000)
+		if (opcode == 0x6c)
+		{
+			int addr = accessMemory(pc++) | (accessMemory(pc++) << 8);
+			return accessMemory(addr) | (accessMemory(addr + 1) << 8);
+		}
+		else if (opcode == 0x4c)
+		{
+			return accessMemory(pc++) | (accessMemory(pc++) << 8);
+		}
+		else if (opcode == 0x20)
+		{
+			return accessMemory(pc++) | (accessMemory(pc++) << 8);
+		}
+		else if ((opcode & 0x1F) == 0b10000)
 		{
 			return accessMemory(pc++);
 		}
@@ -163,10 +180,6 @@ public class CPU
 				return (q | (p << 8)) + x;
 			}
 		}
-		else if (opcode == 0x20)
-		{
-			return accessMemory(pc++) | (accessMemory(pc++) << 8);
-		}
 		return 0;
 	}
 
@@ -237,10 +250,12 @@ public class CPU
 	private void ASL(int operand)
 	{
 		c = accessMemory(operand) >> 7;
-		accessMemory(operand, accessMemory(operand) << 1);
+		accessMemory(operand, (accessMemory(operand) << 1) & 0xFF);
 		z = 0;
 		if (accessMemory(operand) == 0)
+		{
 			z = 1;
+		}
 		n = accessMemory(operand) >> 7;
 	}
 	
@@ -450,7 +465,7 @@ public class CPU
 	
 	private void DEC(int operand)
 	{
-		int t = accessMemory(operand) - 1;
+		int t = (accessMemory(operand) - 1) & 0xFF;
 		accessMemory(operand, t);
 		z = 0;
 		if (t == 0)
@@ -497,17 +512,19 @@ public class CPU
 	
 	private void INC(int operand)
 	{
-		accessMemory(operand, accessMemory(operand) + 1);
+		accessMemory(operand, (accessMemory(operand) + 1) & 0xFF);
 	}
 	
 	private void INX()
 	{
 		x++;
+		x &= 0xFF;
 	}
 	
 	private void INY()
 	{
 		y++;
+		y &= 0xFF;
 	}
 	
 	private void JMP(int operand)
@@ -517,8 +534,8 @@ public class CPU
 	
 	private void JSR(int operand)
 	{
-		accessMemory(0x100 | s--, pc & 0xFF);
 		accessMemory(0x100 | s--, pc >> 8);
+		accessMemory(0x100 | s--, pc & 0xFF);
 		
 		pc = operand;
 	}
@@ -630,10 +647,11 @@ public class CPU
 	
 	private void ROL()
 	{
-		c = a >> 7;
+		int t = a >> 7;
 		a <<= 1;
 		a &= 0xFF;
 		a |= c;
+		c = t;
 		z = 0;
 		if (a == 0)
 		{
@@ -644,8 +662,9 @@ public class CPU
 	
 	private void ROL(int operand)
 	{
-		c = accessMemory(operand) >> 7;
+		int t = accessMemory(operand) >> 7;
 		accessMemory(operand, ((accessMemory(operand) << 1) | c) & 0xFF);
+		c = t;
 		z = 0;
 		if (accessMemory(operand) == 0)
 		{
@@ -656,9 +675,10 @@ public class CPU
 	
 	private void ROR()
 	{
-		c = a & 0x01;
+		int t = a & 0x01;
 		a >>= 1;
 		a |= (c << 7);
+		c = t;
 		z = 0;
 		if (a == 0)
 		{
@@ -669,8 +689,9 @@ public class CPU
 	
 	private void ROR(int operand)
 	{
-		c = accessMemory(operand) & 0x01;
+		int t = accessMemory(operand) & 0x01;
 		accessMemory(operand, (accessMemory(operand) >> 1) | (c << 7));
+		c = t;
 		z = 0;
 		if (accessMemory(operand) == 0)
 		{
@@ -682,12 +703,12 @@ public class CPU
 	private void RTI()
 	{
 		PLP();
-		pc = accessMemory(s++) | (accessMemory(s++) << 8);
+		pc = accessMemory(0x100 | ++s) | (accessMemory(0x100 | ++s) << 8);
 	}
 	
 	private void RTS()
 	{
-		pc = accessMemory(s++) | (accessMemory(s++) << 8);
+		pc = accessMemory(0x100 | ++s) | (accessMemory(0x100 | ++s) << 8);
 	}
 	
 	private void SBC(int operand)
@@ -895,7 +916,7 @@ public class CPU
 		new Opcode() { public void execute(int operand) { NOP(); } },		  // B
 		new Opcode() { public void execute(int operand) { JMP(operand); } }, // C
 		new Opcode() { public void execute(int operand) { ADC(operand); } }, // D
-		new Opcode() { public void execute(int operand) { ROR(operand); } }, // E
+		new Opcode() { public void execute(int operand) { LSR(operand); } }, // E
 		new Opcode() { public void execute(int operand) { NOP(); } },		  // F
 		
 		// 5
