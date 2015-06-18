@@ -41,7 +41,7 @@ public class CPU
 			System.out.printf("%x%n", memory[0x0210]);
 			printed = true;
 		}
-		if (pc > 0x42c6)
+		if (pc > 0x457F)
 		{
 			pc = pc + 1 - 1;
 		}
