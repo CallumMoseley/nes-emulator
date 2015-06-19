@@ -7,7 +7,7 @@ public class NES
 	public NES()
 	{
 		cpu = new CPU();
-		cpu.load(new File("AllSuiteA.bin"));
+//		cpu.load(new File("AllSuiteA.bin"));
 	}
 	
 	public void startCPU()

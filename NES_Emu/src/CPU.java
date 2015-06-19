@@ -11,7 +11,6 @@ public class CPU
 	private int[] memory;
 	
 	boolean irq, nmi, reset;
-	boolean printed = false;
 	
 	public CPU()
 	{
@@ -36,15 +35,6 @@ public class CPU
 	
 	public void op()
 	{
-		if (pc == 0x45C0 && !printed)
-		{
-			System.out.printf("%x%n", memory[0x0210]);
-			printed = true;
-		}
-		if (pc > 0x457F)
-		{
-			pc = pc + 1 - 1;
-		}
 		if (reset)
 		{
 			reset = false;
@@ -57,7 +47,6 @@ public class CPU
 		
 		int operand = decodeOperand(opcode);
 		opcodes[opcode].execute(operand);
-//		System.out.println(opcodeNames[opcode]);
 	}
 	
 	public void load(File f)
@@ -355,6 +344,9 @@ public class CPU
 	
 	private void BRK()
 	{
+		accessMemory(0x100 | s--, pc >> 8);
+		accessMemory(0x100 | s--, pc & 0xFF);
+		PHP();
 		pc = accessMemory(0xFFFE) & (accessMemory(0xFFFF) << 8);
 	}
 	
