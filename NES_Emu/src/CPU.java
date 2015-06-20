@@ -5,6 +5,7 @@ public class CPU
 {
 	private PPU ppu;
 	private APU apu;
+	private GamePak game;
 	
 	private int a, x, y, s, c, z, i, d, v, n, pc;
 	
@@ -32,6 +33,21 @@ public class CPU
 		
 		reset = true;
 	}
+
+	public void setPPU(PPU p)
+	{
+		ppu = p;
+	}
+	
+	public void setAPU(APU ap)
+	{
+		apu = ap;
+	}
+	
+	public void setGame(GamePak g)
+	{
+		game = g;
+	}
 	
 	public void op()
 	{
@@ -49,22 +65,22 @@ public class CPU
 		opcodes[opcode].execute(operand);
 	}
 	
-	public void load(File f)
-	{
-		try
-		{
-			FileInputStream fis = new FileInputStream(f);
-			for (int i = 0x4000; i < memory.length; i++)
-			{
-				memory[i] = fis.read();
-			}
-			fis.close();
-		}
-		catch (Exception e)
-		{
-			e.printStackTrace();
-		}
-	}
+//	public void load(File f)
+//	{
+//		try
+//		{
+//			FileInputStream fis = new FileInputStream(f);
+//			for (int i = 0x4000; i < memory.length; i++)
+//			{
+//				memory[i] = fis.read();
+//			}
+//			fis.close();
+//		}
+//		catch (Exception e)
+//		{
+//			e.printStackTrace();
+//		}
+//	}
 	
 	private int decodeOperand(int opcode)
 	{
@@ -189,14 +205,50 @@ public class CPU
 		tick(1);
 	}
 	
-	private void accessMemory(int addr, int d)
+	private void accessMemory(int addr, int v)
 	{
-		memory[addr] = d;
+		if (addr < 0x2000)
+		{
+			memory[addr & 0x7FF] = v;
+		}
+		else if (addr < 0x4000)
+		{
+			ppu.writeRegister(addr & 0x07, v);
+		}
+		else if (addr < 0x4020)
+		{
+			writeMMRegister(addr & 0x3FFF, v);
+		}
 	}
-	
+
 	private int accessMemory(int addr)
 	{
-		return memory[addr];
+		if (addr < 0x2000)
+		{
+			return memory[addr & 0x7FF];
+		}
+		else if (addr < 0x2008)
+		{
+			return ppu.readRegister(addr & 0x07);
+		}
+		else if (addr < 0x4020)
+		{
+			return readMMRegister(addr & 0x3FFF);
+		}
+		else
+		{
+			return game.readMemory(addr);
+		}
+	}
+
+	private void writeMMRegister(int reg, int v)
+	{
+		
+	}
+	
+	private int readMMRegister(int reg)
+	{
+		return 0;
 	}
 	
 	private void ADC(int operand)

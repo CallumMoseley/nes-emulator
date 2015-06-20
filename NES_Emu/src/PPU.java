@@ -3,8 +3,16 @@ public class PPU
 
 	public void tick()
 	{
-		// TODO Auto-generated method stub
 		
 	}
-	
+
+	public void writeRegister(int i, int d)
+	{
+		
+	}
+
+	public int readRegister(int i)
+	{
+		return 0;
+	}
 }
