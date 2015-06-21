@@ -1,6 +1,3 @@
-import java.io.File;
-import java.io.FileInputStream;
-
 public class CPU
 {
 	private PPU ppu;
@@ -29,7 +26,15 @@ public class CPU
 		
 		pc = 0;
 		
-		memory = new int[0x10000];
+		memory = new int[0x800];
+		for (int i = 0; i < 0x800; i++)
+		{
+			memory[i] = 0xFF;
+		}
+		memory[0x08] = 0xF7;
+		memory[0x09] = 0xEF;
+		memory[0x0A] = 0xDF;
+		memory[0x0F] = 0xBF;
 		
 		reset = true;
 	}
@@ -56,7 +61,8 @@ public class CPU
 			reset = false;
 			s -= 3;
 			i = 1;
-			pc = accessMemory(0xFFFE) | (accessMemory(0xFFFF) << 8);
+			pc = accessMemory(0xFFFC) | (accessMemory(0xFFFD) << 8);
+			accessMemory(0x4015, 0);
 		}
 		int opcode = accessMemory(pc++);
 		tick(cycles[opcode]);
@@ -218,6 +224,10 @@ public class CPU
 		else if (addr < 0x4020)
 		{
 			writeMMRegister(addr & 0x3FFF, v);
+		}
+		else
+		{
+			game.writeMemory(addr, v);
 		}
 	}
 
