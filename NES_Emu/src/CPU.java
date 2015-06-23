@@ -5,6 +5,7 @@ public class CPU
 	private GamePak game;
 	
 	private int a, x, y, s, c, z, i, d, v, n, pc;
+	private long clockCycles;
 	
 	private int[] memory;
 	
@@ -198,11 +199,16 @@ public class CPU
 	{
 		for (int i = 0; i < cycles; i++)
 		{
+			clockCycles++;
+			if (clockCycles >= 29658)
+			{
+				ppu.setWarm();
+			}
 			for (int j = 0; j < 3; j++)
 			{
-//				ppu.tick();
+				ppu.tick();
 			}
-//			apu.tick();
+			apu.tick();
 		}
 	}
 	
