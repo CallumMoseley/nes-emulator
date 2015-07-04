@@ -18,6 +18,8 @@ public class NES
 		cpu.setPPU(ppu);
 		cpu.setAPU(apu);
 		cpu.setGame(game);
+		
+		ppu.setCPU(cpu);
 	}
 	
 	public void startCPU()

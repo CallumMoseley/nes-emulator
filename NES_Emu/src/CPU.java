@@ -9,7 +9,7 @@ public class CPU
 	
 	private int[] memory;
 	
-	boolean irq, nmi, reset;
+	private boolean irq, nmi, reset;
 	
 	public CPU()
 	{
@@ -60,16 +60,30 @@ public class CPU
 		if (reset)
 		{
 			reset = false;
+			nmi = false;
+			irq = false;
+			
 			s -= 3;
 			i = 1;
 			pc = accessMemory(0xFFFC) | (accessMemory(0xFFFD) << 8);
 			accessMemory(0x4015, 0);
 		}
+		else if (nmi)
+		{
+			nmi = false;
+			accessMemory(0x100 | s--, pc >> 8);
+			accessMemory(0x100 | s--, pc & 0xFF);
+			PHP();
+			pc = accessMemory(0xFFFA) & (accessMemory(0xFFFB) << 8);
+		}
+		
 		int opcode = accessMemory(pc++);
 		tick(cycles[opcode]);
 		
 		int operand = decodeOperand(opcode);
 		opcodes[opcode].execute(operand);
+		
+		System.out.println(opcodeNames[opcode]);
 	}
 	
 //	public void load(File f)
@@ -265,6 +279,11 @@ public class CPU
 	private int readMMRegister(int reg)
 	{
 		return 0;
+	}
+	
+	public void triggerNMI()
+	{
+		nmi = true;
 	}
 	
 	private void ADC(int operand)
@@ -579,12 +598,24 @@ public class CPU
 	{
 		x++;
 		x &= 0xFF;
+		z = 0;
+		if (x == 0)
+		{
+			z = 1;
+		}
+		n = x >> 7;
 	}
 	
 	private void INY()
 	{
 		y++;
 		y &= 0xFF;
+		z = 0;
+		if (y == 0)
+		{
+			z = 1;
+		}
+		n = y >> 7;
 	}
 	
 	private void JMP(int operand)
@@ -608,7 +639,7 @@ public class CPU
 		{
 			z = 1;
 		}
-		n = a >> 1;
+		n = a >> 7;
 	}
 	
 	private void LDX(int operand)
