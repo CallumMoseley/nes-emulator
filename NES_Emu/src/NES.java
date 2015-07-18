@@ -20,6 +20,7 @@ public class NES
 		cpu.setGame(game);
 		
 		ppu.setCPU(cpu);
+		ppu.setGame(game);
 	}
 	
 	public void startCPU()

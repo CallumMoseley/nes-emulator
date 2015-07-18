@@ -1,6 +1,10 @@
 public class PPU
 {
 	private CPU cpu;
+	private GamePak game;
+	
+	private int[] memory;
+	private int[] oam;
 	
 	private boolean evenFrame;
 	private boolean warm;
@@ -27,6 +31,11 @@ public class PPU
 	private int nmiOutput;
 	
 	private int addrInc;
+	private int addr;
+	private int addrLatch;
+	
+	private int oamAddr;
+	
 	private int nametable;
 
 	public PPU()
@@ -36,11 +45,17 @@ public class PPU
 		tickCount = 0;
 		evenFrame = true;
 		warm = false;
+		memory = new int[0x4000];
 	}
 	
 	public void setCPU(CPU c)
 	{
 		cpu = c;
+	}
+	
+	public void setGame(GamePak g)
+	{
+		game = g;
 	}
 
 	public void tick()
@@ -116,12 +131,13 @@ public class PPU
 		// OAMADDR
 		else if (i == 3)
 		{
-			
+			oamAddr = d;
 		}
 		// OAMDATA
 		else if (i == 4)
 		{
-			
+			oamAddr &= 0xFF;
+			oam[oamAddr++] = d;
 		}
 		// PPUSCROLL
 		else if (i == 5 && warm)
@@ -131,17 +147,21 @@ public class PPU
 		// PPUADDR
 		else if (i == 6 && warm)
 		{
-			
+			if (addrLatch == 1)
+			{
+				addr &= d;
+			}
+			else
+			{
+				addrLatch = 1;
+				addr = d << 8;
+			}
 		}
 		// PPUDATA
 		else if (i == 7)
 		{
-			
-		}
-		// OAMDMA
-		else if (i == 0x4014)
-		{
-			
+			accessMemory(addr, d);
+			addr += addrInc;
 		}
 	}
 
@@ -152,21 +172,45 @@ public class PPU
 		{
 			int val = (vBlank << 7) | (sprite0Hit << 6) | (spriteOverflow << 5);
 			vBlank = 0;
+			addrLatch = 0;
 			return val;
 		}
 		// OAMDATA
 		else if (i == 4)
 		{
-			
+			oamAddr &= 0xFF;
+			return oam[oamAddr++];
 		}
 		// PPUDATA
 		else if (i == 7)
 		{
-			
+			int val = accessMemory(addr);
+			addr += addrInc;
+			return val;
 		}
 		return 0;
 	}
 	
+	private int accessMemory(int a)
+	{
+		if (a < 0x2000)
+		{
+			return game.readCHR(a);
+		}
+		else
+		{
+			return memory[a];
+		}
+	}
+	private void accessMemory(int a, int v)
+	{
+		if (a < 0x2000)
+		{
+			game.writeCHR(a, v);
+		}
+		memory[a] = v;
+	}
+
 	public void setWarm()
 	{
 		warm = true;

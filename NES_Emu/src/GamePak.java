@@ -52,6 +52,16 @@ public class GamePak
 		}
 		return 0;
 	}
+	
+	public int readCHR(int addr)
+	{
+		return chrRom[0][addr];
+	}
+	
+	public void writeCHR(int addr, int v)
+	{
+		chrRom[0][addr] = v;
+	}
 
 	public void loadGame(File f)
 	{

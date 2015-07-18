@@ -243,6 +243,10 @@ public class CPU
 		}
 		else if (addr < 0x4020)
 		{
+			if (addr == 0x4014)
+			{
+				oamdma(v);
+			}
 			writeMMRegister(addr & 0x3FFF, v);
 		}
 		else
@@ -279,6 +283,22 @@ public class CPU
 	private int readMMRegister(int reg)
 	{
 		return 0;
+	}
+
+	private void oamdma(int page)
+	{
+		tick();
+		if (clockCycles % 2 == 1)
+		{
+			tick();
+		}
+		for (int i = 0; i < 256; i++)
+		{
+			int b = accessMemory((page << 8) | i);
+			tick();
+			ppu.writeRegister(4, b);
+			tick();
+		}
 	}
 	
 	public void triggerNMI()
