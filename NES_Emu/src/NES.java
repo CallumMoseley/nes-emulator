@@ -25,9 +25,22 @@ public class NES
 	
 	public void startCPU()
 	{
-		for (;;)
+		Thread cpuThread = new Thread()
 		{
-			cpu.op();
-		}
+			public void run()
+			{
+				for (;;)
+				{
+					cpu.op();
+				}
+			}
+		};
+		
+		cpuThread.start();
+	}
+
+	public PPU getPPU()
+	{
+		return ppu;
 	}
 }

@@ -1,7 +1,11 @@
+import java.awt.image.BufferedImage;
+
 public class PPU
 {
 	private CPU cpu;
 	private GamePak game;
+	
+	private BufferedImage screen;
 	
 	private int[] memory;
 	private int[] oam;
@@ -46,6 +50,7 @@ public class PPU
 		evenFrame = true;
 		warm = false;
 		memory = new int[0x4000];
+		screen = new BufferedImage(256, 240, BufferedImage.TYPE_INT_RGB);
 	}
 	
 	public void setCPU(CPU c)
@@ -95,7 +100,7 @@ public class PPU
 		}
 		
 		
-		// RENDER
+		// TODO Render
 		
 
 		x++;
@@ -142,7 +147,7 @@ public class PPU
 		// PPUSCROLL
 		else if (i == 5 && warm)
 		{
-			
+			//TODO scrolling
 		}
 		// PPUADDR
 		else if (i == 6 && warm)
@@ -199,6 +204,10 @@ public class PPU
 		}
 		else
 		{
+			if (a >= 0x3F10 && a % 4 == 0)
+			{
+				a -= 0x10;
+			}
 			return memory[a];
 		}
 	}
@@ -208,11 +217,23 @@ public class PPU
 		{
 			game.writeCHR(a, v);
 		}
-		memory[a] = v;
+		else
+		{
+			if (a >= 0x3F10 && a % 4 == 0)
+			{
+				a -= 0x10;
+			}
+			memory[a] = v;
+		}
 	}
 
 	public void setWarm()
 	{
 		warm = true;
+	}
+
+	public BufferedImage getScreen()
+	{
+		return screen;
 	}
 }
