@@ -6,12 +6,11 @@ import java.awt.image.BufferedImage;
 
 import javax.swing.JPanel;
 
-public class NESEmu extends JPanel implements KeyListener
-{
+public class NESEmu extends JPanel implements KeyListener {
 	private NES nes;
+	private Debugger debug;
 
-	public NESEmu()
-	{
+	public NESEmu() {
 		nes = new NES();
 		nes.startCPU();
 
@@ -22,24 +21,26 @@ public class NESEmu extends JPanel implements KeyListener
 	}
 
 	@Override
-	public void paintComponent(Graphics g)
-	{
+	public void paintComponent(Graphics g) {
 		BufferedImage screen = nes.getPPU().getScreen();
 		g.drawImage(screen, 0, 0, null);
 	}
 
 	@Override
-	public void keyTyped(KeyEvent e)
-	{
+	public void keyTyped(KeyEvent e) {
 	}
 
 	@Override
-	public void keyPressed(KeyEvent e)
-	{
+	public void keyPressed(KeyEvent e) {
+		if (e.getKeyCode() == KeyEvent.VK_F6) {
+			debug = new Debugger(nes);
+			debug.setVisible(true);
+			nes.reset();
+			nes.pause();
+		}
 	}
 
 	@Override
-	public void keyReleased(KeyEvent e)
-	{
+	public void keyReleased(KeyEvent e) {
 	}
 }
