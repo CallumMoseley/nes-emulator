@@ -1,7 +1,10 @@
 import java.awt.BorderLayout;
 import java.awt.Dimension;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 
 import javax.swing.BoxLayout;
+import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -15,8 +18,10 @@ public class Debugger extends JFrame {
 	// Components
 	private JTextArea instructions;
 	private JPanel rightPane;
+	
 	private JPanel controls;
-
+	private JButton step;
+	
 	private JPanel info;
 	private JLabel cpuCount;
 	private JLabel cpuLastInstruction;
@@ -27,8 +32,6 @@ public class Debugger extends JFrame {
 
 	public Debugger(NES nes) {
 		super("Debugger");
-		this.nes = nes;
-		nes.attachDebugger(this);
 		debugPanel = new JPanel();
 		setContentPane(debugPanel);
 
@@ -42,8 +45,22 @@ public class Debugger extends JFrame {
 
 		controls = new JPanel();
 		info = new JPanel();
-		rightPane.add(controls, BorderLayout.NORTH);
-		rightPane.add(info, BorderLayout.SOUTH);
+		
+		rightPane.setLayout(new BoxLayout(rightPane, BoxLayout.Y_AXIS));
+		rightPane.add(controls);
+		
+		step = new JButton("Step");
+		step.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				Debugger.this.nes.step();
+			}
+		});
+		
+		controls.setLayout(new BoxLayout(controls, BoxLayout.Y_AXIS));
+		controls.add(step);
+		
+		rightPane.add(info);
 
 		cpuCount = new JLabel("CPU Cycles: 0");
 		cpuLastInstruction = new JLabel("Last Instruction: NOP");
@@ -57,12 +74,15 @@ public class Debugger extends JFrame {
 		info.add(ppuCount);
 		info.add(scanline);
 		info.add(pixel);
+
+		this.nes = nes;
+		nes.attachDebugger(this);
 		
 		this.getContentPane().setPreferredSize(new Dimension(1024, 768));
 		this.pack();
 	}
 
-	public void updateCPU(int count, String lastIns) {
+	public void updateCPU(long count, String lastIns) {
 		cpuCount.setText("CPU Cycles: " + count);
 		cpuLastInstruction.setText("Last Instruction: " + lastIns);
 	}

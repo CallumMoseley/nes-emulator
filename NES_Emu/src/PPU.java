@@ -40,6 +40,8 @@ public class PPU {
 	private int oamAddr;
 
 	private int nametable;
+	
+	private Debugger debug;
 
 	public PPU() {
 		scanline = 0;
@@ -92,6 +94,10 @@ public class PPU {
 
 		x++;
 		tickCount++;
+		
+		if (debug != null) {
+			debug.updatePPU(tickCount, scanline, x);
+		}
 	}
 
 	public void writeRegister(int i, int d) {
@@ -198,6 +204,10 @@ public class PPU {
 	}
 
 	public void attachDebugger(Debugger debugger) {
-
+		debug = debugger;
+	}
+	
+	public void detachDebugger() {
+		debug = null;
 	}
 }

@@ -9,6 +9,8 @@ public class CPU {
 	private int[] memory;
 
 	private boolean irq, nmi, reset;
+	
+	private Debugger debug;
 
 	public CPU() {
 		a = 0;
@@ -50,7 +52,11 @@ public class CPU {
 	}
 
 	public void attachDebugger(Debugger debugger) {
-
+		debug = debugger;
+	}
+	
+	public void detachDebugger() {
+		debug = null;
 	}
 
 	public void reset() {
@@ -67,6 +73,7 @@ public class CPU {
 			i = 1;
 			pc = accessMemory(0xFFFC) | (accessMemory(0xFFFD) << 8);
 			accessMemory(0x4015, 0);
+			clockCycles = 0;
 		} else if (nmi) {
 			nmi = false;
 			accessMemory(0x100 | s--, pc >> 8);
@@ -80,24 +87,23 @@ public class CPU {
 
 		int operand = decodeOperand(opcode);
 		opcodes[opcode].execute(operand);
+		
+		if (debug != null) {
+			debug.updateCPU(clockCycles, opcodeNames[opcode]);
+		}
 	}
 
-	// public void load(File f)
-	// {
-	// try
-	// {
-	// FileInputStream fis = new FileInputStream(f);
-	// for (int i = 0x4000; i < memory.length; i++)
-	// {
-	// memory[i] = fis.read();
-	// }
-	// fis.close();
-	// }
-	// catch (Exception e)
-	// {
-	// e.printStackTrace();
-	// }
-	// }
+//	public void load(File f) {
+//		try {
+//			FileInputStream fis = new FileInputStream(f);
+//			for (int i = 0x4000; i < memory.length; i++) {
+//				memory[i] = fis.read();
+//			}
+//			fis.close();
+//		} catch (Exception e) {
+//			e.printStackTrace();
+//		}
+//	}
 
 	private int decodeOperand(int opcode) {
 		int a = (opcode >> 5) & 0x07;
